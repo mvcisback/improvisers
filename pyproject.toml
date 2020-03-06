@@ -5,7 +5,14 @@ description = "Library for modeling controlled improvisers."
 authors = ["Marcell Vazquez-Chanlatte <mvc@linux.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.7"
+probabilistic_automata = "^0.1.0"
+attr = "^0.3.1"
+funcy = "^1.14"
+numpy = "^1.18.1"
+scipy = "^1.4.1"
+jax = "^0.1.59"
+jaxlib = "^0.1.40"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
