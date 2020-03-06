@@ -1,14 +1,20 @@
 from typing import Union, Mapping, Tuple, TypeVar
 
 import funcy as fn
-import jax.numpy as np
-from jax.scipy.special import logsumexp
-from jax.nn import softmax
-from jax import grad, jit, vmap
+import numpy as np
+from scipy.special import logsumexp, softmax
+#import jax.numpy as np
+#from jax.scipy.special import logsumexp
+#from jax.nn import softmax
+#from jax import grad
 
 
 State = TypeVar("State")
 Action = TypeVar("Action")
+
+
+# TODO: Move state_val and action_val into unrolled object.
+# Enables implementing in a more clever way for simulated systems.
 
 
 def parametric_policy(composed):
