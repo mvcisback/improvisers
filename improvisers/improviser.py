@@ -1,25 +1,22 @@
 import probabilistic_automata as PA
 from scipy.optimize import brentq, newton
 from dfa import DFA
+from dfa.utils import universal, empty
 from probabilistic_automata import PDFA
 
 from improvisers.policy import parametric_policy
 from improvisers.unrolled import unroll
 
 
-UNIVERSAL = PA.lift(DFA(start=True, label=bool, transition=lambda *_: True))
-EMPTY = PA.lift(DFA(start=False, label=bool, transition=lambda *_: False))
-
-
-def to_pdfa(obj):
+def _to_pdfa(dyn, obj):
     if isinstance(obj, PDFA):
         return obj
     elif isinstance(obj, DFA):
         return PA.lift(obj)
     elif obj is True:
-        return Universal
+        return universal(dyn.inputs)
     elif obj is False:
-        return EMPTY
+        return empty(dyn.inputs)
 
     # TODO: support PTLTL and AIG circuits.
     raise NotImplementedError
@@ -31,8 +28,8 @@ def improviser(
         hard_constraint=None,
         
 ) -> PDFA:
-    soft_constraint = to_pdfa(soft_constraint)
-    hard_constraint = to_pdfa(hard_constraint)
+    soft_constraint = _to_pdfa(dyn, soft_constraint)
+    hard_constraint = _to_pdfa(dyn, hard_constraint)
 
     composed = dyn >> (soft_constraint | hard_constraint)
     unrolled = composed.unroll(horizon, composed)
