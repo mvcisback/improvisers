@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Union, Mapping, Tuple, TypeVar, NamedTuple, Optional
 
 import attr
@@ -7,10 +9,7 @@ import probabilistic_automata as PA
 from scipy.special import logsumexp
 from dfa import SupAlphabet
 
-#import jax.numpy as np
-#from jax.scipy.special import logsumexp
-#from jax.nn import softmax
-#from jax import grad
+from improvisers.unrolled import TimedState
 
 
 State = TypeVar("State")
@@ -18,9 +17,16 @@ Action = TypeVar("Action")
 oo = float('inf')
 
 
-class StateAction(NamedTuple):
-    state: State
-    action: Optional[Action]
+class PolicyState(NamedTuple):
+    state: TimedState
+    prev_action: Optional[Action] = None
+
+    @property
+    def time(self) -> int:
+        return self.state.time
+
+    def evolve(self, s: State, a: Action) -> PolicyState:
+        return PolicyState(state=self.evolve(s), prev_action=a)
 
 
 @attr.s(frozen=True, auto_attribs=True)
@@ -89,32 +95,28 @@ class Policy:
 
         return acc
 
+    def as_pdfa(self) -> PA.PDFA:
+        def policy_transition(prev_state, composite_action):
+            curr_state, action = composite_action
+            return prev_state.evolve(curr_state, action)
 
-# Enables implementing in a more clever way for simulated systems.
+        def policy_dist(policy_state, sys_state):
+            timed_state = TimedState(val=sys_state, timed=policy_state.time)
+            return {a: prob(a, timed_state) for a in self.actions}
+
+        return PA.pdfa(
+            start=PolicyState(self.dyn.start),
+            label=lambda s: s.prev_action,    
+            transition=policy_transition,
+            inputs=SupAlphabet(),            # Proxy for state observations.
+            outputs=self.actions,
+            env_dist=policy_dist,
+            env_inputs=self.actions,
+        )
+
+    def run(self, start=None, seed=None):
+        return self.as_pdfa().run(start=start, seed=seed, label=True)
 
 
 def parametric_policy(composed):
-    def ppolicy(coeff):
-        policy = Policy(coeff=coeff, dyn=composed)
-
-        def policy_transition(_, composite_action):
-            curr_state, next_action = composite_action
-            return StateAction(curr_state, next_action)
-
-        def policy_dist(s, _):
-            return {a: prob(a, s) for a in composed.inputs}
-
-        """
-        policy_pdfa = PA.pdfa(
-            start=StateAction(composed.start, None),
-            label=lambda s: s.action,
-            transition=policy_transition,
-            inputs=SupAlphabet(),            # Surrogate for state observation.
-            env_inputs=composed.inputs,
-            env_dist=policy_dist,
-        )
-        """
-
-        return policy
-
-    return ppolicy
+    return lambda coeff: Policy(coeff=coeff, dyn=composed)
