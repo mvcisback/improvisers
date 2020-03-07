@@ -1,8 +1,10 @@
-from typing import Union, Mapping, Tuple, TypeVar
+from typing import Union, Mapping, Tuple, TypeVar, NamedTuple, Optional
 
 import funcy as fn
 import numpy as np
 from scipy.special import logsumexp
+from dfa import SupAlphabet
+from probabilistic_automata import pdfa
 #import jax.numpy as np
 #from jax.scipy.special import logsumexp
 #from jax.nn import softmax
@@ -12,6 +14,11 @@ from scipy.special import logsumexp
 State = TypeVar("State")
 Action = TypeVar("Action")
 oo = float('inf')
+
+
+class StateAction(NamedTuple):
+    state: State
+    action: Optional[Action]
 
 
 # TODO: Move state_val and action_val into unrolled object.
@@ -63,6 +70,8 @@ def parametric_policy(composed):
                 return -oo
             elif s.time == 0:
                 return coeff * label(s)
+            elif s.time < 0:
+                return 0
             else:
                 return logsumexp([action_val(s, a) for a in actions])
 
@@ -76,6 +85,22 @@ def parametric_policy(composed):
 
             return acc
 
-        return psat(composed.start), (state_val, action_val)
+        def policy_transition(_, composite_action):
+            curr_state, next_action = composite_action
+            return StateAction(curr_state, next_action)
+
+        def policy_dist(s, _):
+            return {a: prob(a, s) for a in composed.inputs}
+
+        policy = pdfa(
+            start=StateAction(composed.start, None),
+            label=lambda s: s.action,
+            transition=policy_transition,
+            inputs=SupAlphabet(),            # Surrogate for state observation.
+            env_inputs=composed.inputs,
+            env_dist=policy_dist,
+        )
+
+        return psat(composed.start), (state_val, action_val, policy)
 
     return ppolicy

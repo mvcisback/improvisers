@@ -20,7 +20,7 @@ def test_parametric_policy_smoke():
     unrolled = unroll(3, PA.lift(dyn))
     ppolicy = parametric_policy(unrolled)
     
-    psat, (state_val, action_val) = ppolicy(2)
+    psat, (state_val, action_val, _) = ppolicy(2)
     assert 0 < float(psat) < 1
 
     for s in unrolled.states():
@@ -33,7 +33,7 @@ def test_parametric_policy_smoke():
             assert float(action_val(s, False)) == float(action_val(s, True))
             assert float(action_val(s, True)) < float(state_val(s))
 
-    psat, (state_val, action_val) = fit(ppolicy, 0.8)
+    psat, _ = fit(ppolicy, 0.8)
     assert pytest.approx(0.8, rel=1e-3) == float(psat)
     
 
@@ -44,6 +44,6 @@ def test_invalid_states():
     unrolled = unroll(3, PA.lift(dyn))
     ppolicy = parametric_policy(unrolled)
     
-    psat, (state_val, action_val) = fit(ppolicy, 1)
+    psat, (state_val, action_val, _) = fit(ppolicy, 1)
 
     assert psat == 1
