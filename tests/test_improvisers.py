@@ -20,21 +20,20 @@ def test_parametric_policy_smoke():
     unrolled = unroll(3, PA.lift(dyn))
     ppolicy = parametric_policy(unrolled)
     
-    psat, (state_val, action_val, _) = ppolicy(2)
-    assert 0 < float(psat) < 1
+    policy = ppolicy(2)
 
     for s in unrolled.states():
         if s.time == 0:
-            assert float(state_val(s)) in (0.0, 2.0)
+            assert policy.value(s) in (0.0, 2.0)
         elif s.val[0]:
-            assert float(action_val(s, False)) < float(action_val(s, True))
-            assert float(action_val(s, True)) < float(state_val(s))
+            assert policy.value(s, False) < policy.value(s, True)
+            assert policy.value(s, True) < policy.value(s)
         else:
-            assert float(action_val(s, False)) == float(action_val(s, True))
-            assert float(action_val(s, True)) < float(state_val(s))
+            assert policy.value(s, False) == policy.value(s, True)
+            assert policy.value(s, True) < policy.value(s)
 
-    psat, _ = fit(ppolicy, 0.8)
-    assert pytest.approx(0.8, rel=1e-3) == float(psat)
+    assert 0 < policy.psat() < 1
+    assert pytest.approx(0.8, rel=1e-3) == fit(ppolicy, 0.8).psat()
     
 
 def test_invalid_states():
@@ -44,6 +43,4 @@ def test_invalid_states():
     unrolled = unroll(3, PA.lift(dyn))
     ppolicy = parametric_policy(unrolled)
     
-    psat, (state_val, action_val, _) = fit(ppolicy, 1)
-
-    assert psat == 1
+    assert fit(ppolicy, 1).psat() == 1

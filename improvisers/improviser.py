@@ -40,7 +40,7 @@ def improviser(
 
 def fit(ppolicy, sat_prob, top=100):
     def f(coeff):
-        return float(ppolicy(coeff)[0]) - sat_prob
+        return ppolicy(coeff).psat() - sat_prob
 
     if f(-top) > 0:
         coeff = 0

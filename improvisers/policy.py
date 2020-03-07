@@ -1,10 +1,12 @@
 from typing import Union, Mapping, Tuple, TypeVar, NamedTuple, Optional
 
+import attr
 import funcy as fn
 import numpy as np
+import probabilistic_automata as PA
 from scipy.special import logsumexp
 from dfa import SupAlphabet
-from probabilistic_automata import pdfa
+
 #import jax.numpy as np
 #from jax.scipy.special import logsumexp
 #from jax.nn import softmax
@@ -21,69 +23,79 @@ class StateAction(NamedTuple):
     action: Optional[Action]
 
 
-# TODO: Move state_val and action_val into unrolled object.
+@attr.s(frozen=True, auto_attribs=True)
+class Policy:
+    coeff: float
+    dyn: PA.PDFA
+
+    @property
+    def actions(self):
+        return self.dyn.inputs
+
+    def valid(self, s: State) -> bool:
+        return self.dyn.dfa._label(s)[1]
+
+    def label(self, s: State) -> float:
+        return float(self.dyn.dfa._label(s)[0])
+
+    def _next_state_dist(self, s: State, a: Action):
+        return self.dyn._probs(s, a)
+
+    @fn.memoize
+    def value(self, s: State, a: Optional[Action] = None) -> float:
+        if a is None:
+            if not self.valid(s):
+                return -oo
+            elif s.time == 0:
+                return self.coeff * self.label(s)
+            elif s.time < 0:
+                return 0
+
+            return logsumexp([self.value(s, a) for a in self.actions])
+
+        acc = 0
+        for s2, p in self._next_state_dist(s, a):
+            if not self.valid(s2):
+                return -oo
+            acc += self.value(s2)
+
+        return acc
+
+    @fn.memoize
+    def __call__(self, action: Action, state: State) -> float:
+        assert self.valid(state), "action probs undefined for invalid states."
+        action_prob = np.exp(self.value(state, action) - self.value(state))
+        assert 0 <= action_prob <= 1
+        return action_prob
+
+    @fn.memoize
+    def psat(self, s: Optional[State] = None) -> float:
+        if s is None:
+            s = self.dyn.start
+
+        assert self.valid(s), "psat undefined for invalid states."
+
+        if s.time == 0:
+            return self.label(s)
+
+        acc = 0
+        for a in self.actions:
+            prob_a = self(a, s)
+            if prob_a == 0:
+                continue
+
+            state_probs = self._next_state_dist(s, a)
+            acc += prob_a * sum(self.psat(s2) * p for s2, p in state_probs)
+
+        return acc
+
+
 # Enables implementing in a more clever way for simulated systems.
 
 
 def parametric_policy(composed):
-    # Recurse through DFA and compute psat, state_value, action_value.
-
-    actions = tuple(composed.inputs)  # Fix order.
-    iter_probs = composed._probs      # Iterator over transition probabilities.
-
-    # Remove actions that lead to hard constraint.
-
-    label = lambda s: float(composed.dfa._label(s)[0])
-    valid = lambda s: float(composed.dfa._label(s)[1])
-
     def ppolicy(coeff):
-        psat: Mapping[State, float] = {}
-        values: Mapping[Union[State, Tuple[State, Action]], float] = {}
-
-        @fn.memoize
-        def psat(s: State) -> float:
-            assert valid(s), "psat undefined for invalid states"
-
-            if s.time == 0:
-                return label(s)
-
-            acc = 0
-            for a in actions:
-                prob_a = prob(a, s)
-                if prob_a == 0:
-                    continue
-
-                acc += prob_a * sum(psat(s2) * p for s2, p in iter_probs(s, a))
-
-            return acc
-
-        @fn.memoize
-        def prob(a: Action, s: State) -> float:
-            assert valid(s), "action probs undefined for invalid states."
-            action_prob = np.exp(action_val(s, a) - state_val(s))
-            assert 0 <= action_prob <= 1
-            return action_prob
-
-        @fn.memoize
-        def state_val(s: State) -> float:
-            if not valid(s):
-                return -oo
-            elif s.time == 0:
-                return coeff * label(s)
-            elif s.time < 0:
-                return 0
-            else:
-                return logsumexp([action_val(s, a) for a in actions])
-
-        @fn.memoize
-        def action_val(s: State, a: Action) -> float:
-            acc = 0
-            for s2, p in iter_probs(s, a):
-                if not valid(s2):
-                    return -oo
-                acc += state_val(s2)
-
-            return acc
+        policy = Policy(coeff=coeff, dyn=composed)
 
         def policy_transition(_, composite_action):
             curr_state, next_action = composite_action
@@ -92,7 +104,8 @@ def parametric_policy(composed):
         def policy_dist(s, _):
             return {a: prob(a, s) for a in composed.inputs}
 
-        policy = pdfa(
+        """
+        policy_pdfa = PA.pdfa(
             start=StateAction(composed.start, None),
             label=lambda s: s.action,
             transition=policy_transition,
@@ -100,7 +113,8 @@ def parametric_policy(composed):
             env_inputs=composed.inputs,
             env_dist=policy_dist,
         )
+        """
 
-        return psat(composed.start), (state_val, action_val, policy)
+        return policy
 
     return ppolicy
