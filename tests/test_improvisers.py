@@ -10,15 +10,18 @@ from improvisers.unrolled import unroll
 from improvisers.policy import parametric_policy
 
 
-def test_parametric_policy_smoke():
+def test_smoke():
     hard = universal({0, 1})
     soft = DFA(start=True, label=bool, transition=op.and_, inputs={0, 1})
+
     dyn = tee(soft, hard)
 
     assert len(dyn.states()) == 2
 
     unrolled = unroll(3, PA.lift(dyn))
     ppolicy = parametric_policy(unrolled)
+
+    ppolicy2 = improviser(horizon=3, dyn=soft, sat_prob=None)
     
     policy = ppolicy(2)
 

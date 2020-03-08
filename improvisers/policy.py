@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Union, Mapping, Tuple, TypeVar, NamedTuple, Optional
+from typing import Callable, NamedTuple, Optional
+from typing import Union, Mapping, Tuple, TypeVar
 
 import attr
 import funcy as fn
@@ -118,5 +119,8 @@ class Policy:
         return self.as_pdfa().run(start=start, seed=seed, label=True)
 
 
-def parametric_policy(composed):
+ParametricPolicy = Callable[[float], Policy]
+
+
+def parametric_policy(composed: PA.PDFA) -> ParametricPolicy:
     return lambda coeff: Policy(coeff=coeff, dyn=composed)
