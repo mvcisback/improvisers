@@ -27,12 +27,15 @@ def improviser(
         # TODO: support PTLTL and AIG circuits.
         raise NotImplementedError
 
-    dyn, soft, hard = map(_to_pdfa, [dyn, soft, hard])
+    assert (soft is None) == (hard is None)
+
+    if not (soft is None and hard is None):
+        dyn, soft, hard = map(_to_pdfa, [dyn, soft, hard])
 
     composed = dyn >> tee(soft, hard)
     unrolled = unroll(horizon, composed)
 
-    ppolicy = IP.parametric_policy(unrolled)
+    ppolicy = parametric_policy(unrolled)
 
     if sat_prob is None:
         return ppolicy

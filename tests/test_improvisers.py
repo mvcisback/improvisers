@@ -4,26 +4,31 @@ import pytest
 import probabilistic_automata as PA
 from dfa import DFA
 from dfa.utils import tee, universal
+from probabilistic_automata.utils import tee as tee2
 
 from improvisers.improviser import fit, improviser
 from improvisers.unrolled import unroll
 from improvisers.policy import parametric_policy
 
 
+DELAY = DFA(
+    start=1,
+    label=lambda s: s, 
+    transition=lambda _, c: c,
+    inputs={0, 1},
+    outputs={0, 1},
+)
+UNIVERSAL = universal({0, 1})
+ALWAYS_1 = DFA(start=1, label=bool, transition=min, inputs={0, 1})
+
+
 def test_smoke():
-    hard = universal({0, 1})
-    soft = DFA(start=True, label=bool, transition=op.and_, inputs={0, 1})
-
-    dyn = tee(soft, hard)
-
+    dyn = tee(ALWAYS_1, UNIVERSAL)
     assert len(dyn.states()) == 2
-
     unrolled = unroll(3, PA.lift(dyn))
     ppolicy = parametric_policy(unrolled)
-
-    ppolicy2 = improviser(horizon=3, dyn=soft, sat_prob=None)
-    
     policy = ppolicy(2)
+    policy.value(unrolled.start)
 
     for s in unrolled.states():
         if s.time == 0:

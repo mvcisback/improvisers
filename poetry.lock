@@ -186,11 +186,11 @@ description = "Python library for manipulating probabilistic automata."
 name = "probabilistic-automata"
 optional = false
 python-versions = ">=3.7,<4.0"
-version = "0.1.1"
+version = "0.3.0"
 
 [package.dependencies]
 attrs = ">=19.3.0,<20.0.0"
-dfa = ">=1.0.3,<2.0.0"
+dfa = ">=1.1,<2.0"
 funcy = ">=1.14,<2.0"
 lenses = ">=0.5.0,<0.6.0"
 
@@ -316,7 +316,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "3d027fd5b6bf52e2e9084d698affecee179f4c66ce8f35cc1d3b6f335d8492ed"
+content-hash = "f6012923226bce554e5486eb67ea26a38637e483dfa4052b2166dc8f80e0be0d"
 python-versions = "^3.7"
 
 [metadata.files]
@@ -403,8 +403,8 @@ pluggy = [
     {file = "pluggy-0.13.1.tar.gz", hash = "sha256:15b2acde666561e1298d71b523007ed7364de07029219b604cf808bfa1c765b0"},
 ]
 probabilistic-automata = [
-    {file = "probabilistic_automata-0.1.1-py3-none-any.whl", hash = "sha256:57ac436bc0164deae54b54176d4950c9df710285390f045fb27ce6c74e72d0f5"},
-    {file = "probabilistic_automata-0.1.1.tar.gz", hash = "sha256:5fb0a09c3aa6749deed1b0a93189c9931ec1a9431c5d1c842214c763b404d113"},
+    {file = "probabilistic_automata-0.3.0-py3-none-any.whl", hash = "sha256:d2fdc8340554ce54a495974ad92e1f6a620df8b5556b319da4569f0d7f5a814d"},
+    {file = "probabilistic_automata-0.3.0.tar.gz", hash = "sha256:b173568d551709df4ea68d941571e6b46f9ca027aa4f19b3cef1b3210888b1e3"},
 ]
 py = [
     {file = "py-1.8.1-py2.py3-none-any.whl", hash = "sha256:c20fdd83a5dbc0af9efd622bee9a5564e278f6380fffcacc43ba6f43db2813b0"},

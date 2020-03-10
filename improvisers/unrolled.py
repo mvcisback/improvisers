@@ -20,7 +20,7 @@ def unroll(horizon, dyn):
         transition=lambda s, c: s.evolve(dyn.dfa._transition(s.val, c)),
         inputs=dyn.inputs,
         outputs=dyn.outputs,
-        env_dist=dyn.env_dist,
+        env_dist=lambda s, c: dyn.env_dist(s.val, c),
         env_inputs=dyn.env_inputs,
     )
     
