@@ -8,6 +8,7 @@ authors = ["Marcell Vazquez-Chanlatte <mvc@linux.com>"]
 python = "^3.7"
 attrs = "^20.3.0"
 networkx = "^2.5"
+toposort = "^1.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
