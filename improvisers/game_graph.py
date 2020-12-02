@@ -35,6 +35,12 @@ class GameGraph:
     def __post_init_attrs__(self):
         """DFS to check acyclic and terminals iff bool label."""
         visited = {}
+        for node, children in neighbors.items():
+            if isinstance(node, bool) == bool(children):
+                raise ValueError('Only terminals can be rewards!')
+            if children & visited:
+                raise ValueError("Graph contains a cycle!")
+            visited |= children
 
 
 __all__ = ['GameGraph', 'Actions', 'Distribution']
