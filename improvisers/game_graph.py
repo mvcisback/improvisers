@@ -1,7 +1,5 @@
-from typing import Any, Callable, Hashable, Literal, Mapping, Protocol
+from typing import Any, Callable, Hashable, Literal, List, Mapping, Protocol
 from typing import Optional, Set, Tuple, Union
-
-import attr
 
 
 Action = Any
@@ -10,51 +8,76 @@ NodeKinds = Union[Literal['p1'], Literal['p2'], Literal['env'], bool]
 
 
 class Distribution(Protocol):
-    def logprob(self, elem=None) -> float:
+    def logprob(self, action: Action) -> float:
         ...
 
-    def sample(self, seed=None) -> Any:
+    def sample(self, seed: Optional[int]=None) -> Any:
         ...
 
 
 class Actions(Protocol):
-    size: int
-    dist: Optional[Distribution] = None
+    @property
+    def size(self) -> int:
+        ...
 
-    def __contains__(self, elem) -> bool:
+    @property
+    def logprob(self) -> Optional[float]:
+        ...
+
+    @property
+    def dist(self) -> Optional[Distribution]:
+        ...
+
+    def __contains__(self, action: Action) -> bool:
         ...
 
 
-@attr.s(frozen=True, auto_attribs=True)
-class GameGraph:
+class GameGraph(Protocol):
     """Adjacency list representation of game graph."""
-    root: Node
-    label: Callable[[Node], NodeKinds]          # Node -> Player or Reward.
-    neighbors: Callable[[Node], Set[Node]]      # Adjacency List.
-    actions: Callable[[Node, Node], Actions]    # Edge -> Available Actions.
+    @property
+    def root(self) -> Node:
+        ...
 
-    def __post_init_attrs__(self):
-        """DFS to check acyclic and terminals iff bool label."""
-        stack, visited = [], {}
-        while stack:
-            node = stack.pop()
-            neighbors = self.neighbors(node)
-            label = self.label(node)
+    def label(self, node: Node) -> NodeKinds:
+        ...
 
-            if neighbors & visited:
-                raise ValueError("Graph contains a cycle!")
+    def neighbors(self, node: Node) -> Set[Node]:
+        ...
 
-            if isinstance(label, bool) == bool(neighbors):
-                raise ValueError('Terminals <-> label is a reward!')
+    def actions(self, start: Node, end: Node) -> Actions:
+        ...
 
+
+def validate_game_graph(graph: GameGraph) -> None:
+    """Validates preconditions on game graph.
+
+    1. Graph should define a DAG.
+    2. Only terminal nodes should have rewards (and vice versa).
+    3. Environment actions should be stochastic.
+    """
+    stack, visited= [graph.root], {graph.root}
+    while stack:
+        node = stack.pop()
+        neighbors = graph.neighbors(node)
+        label = graph.label(node)
+
+        if neighbors & visited:
+            raise ValueError("Graph contains a cycle!")
+
+        if isinstance(label, bool) == bool(neighbors):
+            raise ValueError('Terminals <-> label is a reward!')
+
+        if label == "env":
             for node2 in neighbors:
-                actions = self.actions(node, node2)
-                
-                if (label == "env") and (actions.dist is None):
+                actions = graph.actions(node, node2)
+                if (actions.dist is None) or (actions.logprob is None):
                     raise ValueError("Environment actions must by stochastic.")
 
-            visited |= children
-            stack.extend(children)
+        visited |= neighbors
+        stack.extend(neighbors)
 
 
-__all__ = ['GameGraph', 'Actions', 'Distribution']
+__all__ = [
+    'GameGraph', 'Actions', 'Distribution', 'validate_game_graph',
+    'Action', 'Node', 'NodeKinds'
+]
