@@ -28,19 +28,33 @@ class Actions(Protocol):
 @attr.s(frozen=True, auto_attribs=True)
 class GameGraph:
     """Adjacency list representation of game graph."""
+    root: Node
     label: Callable[[Node], NodeKinds]          # Node -> Player or Reward.
     neighbors: Callable[[Node], Set[Node]]      # Adjacency List.
     actions: Callable[[Node, Node], Actions]    # Edge -> Available Actions.
 
     def __post_init_attrs__(self):
         """DFS to check acyclic and terminals iff bool label."""
-        visited = {}
-        for node, children in neighbors.items():
-            if isinstance(node, bool) == bool(children):
-                raise ValueError('Only terminals can be rewards!')
-            if children & visited:
+        stack, visited = [], {}
+        while stack:
+            node = stack.pop()
+            neighbors = self.neighbors(node)
+            label = self.label(node)
+
+            if neighbors & visited:
                 raise ValueError("Graph contains a cycle!")
+
+            if isinstance(label, bool) == bool(neighbors):
+                raise ValueError('Terminals <-> label is a reward!')
+
+            for node2 in neighbors:
+                actions = self.actions(node, node2)
+                
+                if (label == "env") and (actions.dist is None):
+                    raise ValueError("Environment actions must by stochastic.")
+
             visited |= children
+            stack.extend(children)
 
 
 __all__ = ['GameGraph', 'Actions', 'Distribution']
