@@ -39,12 +39,18 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
 
 
 def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
-    """Find improviser for game with p1.
+    """Find player 1 improviser for game.
 
     Args:
-    - game: GameGraph for game to play.
-    - psat: Min worst case winning probability of improviser.
-    - entropy: Min worst case entropy of improviser.
+      - game: GameGraph for game to play.
+      - psat: Min worst case winning probability of improviser.
+      - entropy: Min worst case entropy of improviser.
+
+    Yields:
+      Node to transition to and conjectured next player 1 state distribution.
+
+    Sends:
+      Current player 1 state and distribution the state was drawn from.
 
     Returns:
       Whether or not player 1 won the game.
