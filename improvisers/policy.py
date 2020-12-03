@@ -18,6 +18,17 @@ Improviser = Generator[
 
 
 def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
+    """Replan based on observed state distribution.
+
+    Args:
+    - coeff: Current rationality coefficient.
+    - critic: Critic to the current stochastic game.
+    - dist1: Conjectured next state distribution used for planning.
+    - dist2: Actual next state distribution.
+
+    Returns:
+      Rationality coefficient induced by actual state distribution.
+    """
     psat = dist1.psat(critic, coeff)
 
     def f(x: float) -> float:
@@ -34,6 +45,9 @@ def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
     - game: GameGraph for game to play.
     - psat: Min worst case winning probability of improviser.
     - entropy: Min worst case entropy of improviser.
+
+    Returns:
+      Whether or not player 1 won the game.
     """
     state = game.root
     critic = Critic.from_game_graph(game)
@@ -49,3 +63,6 @@ def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
         rationality = replan(rationality, critic, state_dist, state_dist2)
 
     return bool(game.label(state))
+
+
+__all__ = ['policy', 'Improviser']
