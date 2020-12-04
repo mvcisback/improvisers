@@ -3,9 +3,11 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Hashable, List, Literal, Mapping, Optional, Tuple, TypeVar, Union, DefaultDict, Dict
-from typing import Callable, TypeVar
+from typing import cast, Callable, TypeVar
 
 import attr
+import numpy as np
+from scipy.special import logsumexp
 
 from improvisers.game_graph import Node, Action, GameGraph
 from improvisers.critic import Critic, Distribution
@@ -51,8 +53,25 @@ class TabularCritic:
     cache: Cache = attr.ib(factory=Cache)
 
     @cached_stat
-    def value(self, node: Node, rationality: float)-> float:
-        pass
+    def value(self, node: Node, rationality: float) -> float:
+        label = self.game.label(node)
+        if isinstance(label, bool):              # Terminal node.
+            return rationality * label
+
+        actions = list(self.game.actions(node))  # Fix order of actions.
+
+        values = np.array([self.value(a.node, rationality) for a in actions])
+        values += np.log(np.array([a.size for a in actions]))
+        
+        if label == 'p1':                        # Player 1 case.
+            return logsumexp(values)
+        elif label == 'p2':                      # Player 2 case.
+            return values.min()
+
+        assert label == 'env'                    # Environment case.
+        probs = cast(List[float], [a.prob for a in actions])
+        return np.average(values, weights=probs)
+
 
     @cached_stat
     def entropy(self, node: Node, rationality: float) -> float:
