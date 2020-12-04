@@ -1,6 +1,9 @@
 """This module contains the tabular Critic implementation."""
+from __future__ import annotations
+
 from collections import defaultdict
 from typing import Any, Hashable, List, Literal, Mapping, Optional, Tuple, TypeVar, Union, DefaultDict, Dict
+from typing import Callable, TypeVar
 
 import attr
 
@@ -29,18 +32,29 @@ class Cache:
         self.data[node, stat_key] = (val, rationality)
 
 
+NodeStatFunc = Callable[[TabularCritic, Node, float], float]
+
+
+def cached_stat(key: str,) -> Callable[[NodeStatFunc], NodeStatFunc]:
+    def stat_cacher(func: NodeStatFunc) -> NodeStatFunc:
+        def wrapped(critic: TabularCritic, node: Node, rationality: float) -> float:
+            if (node, key, rationality) in critic.cache:
+                return critic.cache[node, key, rationality]
+            val = func(critic, node, rationality)
+            critic.cache[node, key, rationality] = val
+            return val
+        return wrapped
+    return stat_cacher
+
+
 @attr.s(frozen=True, auto_attribs=True)
 class TabularCritic:
     game: GameGraph
     cache: Cache = attr.ib(factory=Cache)
 
+    @cached_stat('value')
     def value(self, node: Node, rationality: float)-> float:
-        if (node, 'val', rationality) in self.cache:
-            return self.cache[node, 'val', rationality]
-
-        val = 0 # TODO <-----------------------------------------------------------------------
-        self.cache[node, 'val', rationality] = val
-        return val
+        pass
 
     def entropy(self, node: Node, rationality: float) -> float:
         pass
