@@ -60,22 +60,24 @@ class TabularCritic:
 
         actions = list(self.game.actions(node))  # Fix order of actions.
 
+        if label == 'p2':                        # Player 2 case.
+            def key(action: Action) -> Tuple[float, float]:
+                psat = self.psat(action.node, rationality)
+                val = self.value(action.node, rationality)
+                return psat, val
+
+            p2_action = min(actions, key=key)
+            return self.value(p2_action.node, rationality)
+
         values = np.array([self.value(a.node, rationality) for a in actions])
         values += np.log(np.array([a.size for a in actions]))
         
         if label == 'p1':                        # Player 1 case.
             return logsumexp(values)
-        elif label == 'p2':                      # Player 2 case.
-            return values.min()
 
         assert label == 'env'                    # Environment case.
         probs = cast(List[float], [a.prob for a in actions])
         return np.average(values, weights=probs)
-
-
-    @cached_stat
-    def entropy(self, node: Node, rationality: float) -> float:
-        pass
 
     @cached_stat
     def psat(self, node: Node, rationality: float) -> float:
@@ -83,6 +85,10 @@ class TabularCritic:
 
     @cached_stat
     def rationality(self, node: Node, psat: float) -> float:
+        pass
+
+    @cached_stat
+    def entropy(self, node: Node, rationality: float) -> float:
         pass
 
     def action_dist(self, state: Node, rationality: float) -> Distribution:
