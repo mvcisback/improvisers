@@ -1,6 +1,7 @@
 """This module contains the tabular Critic implementation."""
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from typing import Any, Hashable, List, Literal, Mapping, Optional, Tuple, TypeVar, Union, DefaultDict, Dict
 from typing import cast, Callable, TypeVar
@@ -52,6 +53,20 @@ class TabularCritic:
     game: GameGraph
     cache: Cache = attr.ib(factory=Cache)
 
+    def p2_action(self, node: Node, rationality: float) -> Action:
+        assert self.game.label(node) == 'p2'
+        actions = list(self.game.actions(node))  # Fix order of actions.
+
+        def key(action: Action) -> Tuple[float, float]:
+            lsat = self.lsat(action.node, rationality)
+            val = self.action_value(action, rationality)
+            return lsat, val
+
+        return min(actions, key=key)
+
+    def action_value(self, action: Action, rationality: float) -> float:
+        return self.value(action.node, rationality) + math.log(action.size)
+
     @cached_stat
     def value(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
@@ -61,16 +76,10 @@ class TabularCritic:
         actions = list(self.game.actions(node))  # Fix order of actions.
 
         if label == 'p2':                        # Player 2 case.
-            def key(action: Action) -> Tuple[float, float]:
-                psat = self.psat(action.node, rationality)
-                val = self.value(action.node, rationality)
-                return psat, val
-
-            p2_action = min(actions, key=key)
+            p2_action = self.p2_action(node, rationality)
             return self.value(p2_action.node, rationality)
 
-        values = np.array([self.value(a.node, rationality) for a in actions])
-        values += np.log(np.array([a.size for a in actions]))
+        values = np.array([self.action_value(a, rationality) for a in actions])
         
         if label == 'p1':                        # Player 1 case.
             return logsumexp(values)
@@ -80,8 +89,11 @@ class TabularCritic:
         return np.average(values, weights=probs)
 
     @cached_stat
+    def lsat(self, node: Node, rationality: float) -> float:
+        ...
+
     def psat(self, node: Node, rationality: float) -> float:
-        pass
+        return math.exp(self.lsat(node, rationality))
 
     @cached_stat
     def rationality(self, node: Node, psat: float) -> float:

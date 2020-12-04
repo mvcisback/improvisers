@@ -1,9 +1,11 @@
+from typing import Iterable
+
 from numpy import Array
 
 
-def logsumexp(vals: Array) -> float:
+def logsumexp(vals: Iterable[floats]) -> float:
     ...
 
 
-def softmax(vals: Array) -> Array:
+def softmax(vals: Iterable[floats]) -> Array:
     ...
