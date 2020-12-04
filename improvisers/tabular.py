@@ -77,7 +77,7 @@ class TabularCritic:
 
         if label == 'p2':                        # Player 2 case.
             p2_action = self.p2_action(node, rationality)
-            return self.value(p2_action.node, rationality)
+            return self.action_value(p2_action, rationality)
 
         values = np.array([self.action_value(a, rationality) for a in actions])
         
