@@ -2,16 +2,41 @@
 from __future__ import annotations
 
 import math
+import random
 from collections import defaultdict
 from typing import Any, Hashable, List, Literal, Mapping, Optional, Tuple, TypeVar, Union, DefaultDict, Dict
-from typing import cast, Callable, TypeVar
+from typing import cast, Callable, TypeVar, Iterable
 
 import attr
 import numpy as np
-from scipy.special import logsumexp
+from scipy.special import logsumexp, softmax
 
 from improvisers.game_graph import Node, Action, GameGraph
 from improvisers.critic import Critic, Distribution
+
+
+@attr.s(frozen=True, auto_attribs=True)
+class Dist:
+    data: Dict[Node, float] = attr.ib(factory=dict)
+
+    def sample(self, seed: Optional[int] = None) -> Node:
+        if seed is not None:
+            random.seed(seed)
+        return random.choices(*zip(*self.data.items()))[0]  # type: ignore
+
+    def prob(self, node: Node) -> float:
+        return self.data[node]
+
+    def support(self) -> Iterable[Node]:
+        return self.data.keys()
+
+    def lsat(self, critic: Critic, rationality: float) -> float:
+        probs = [self.prob(n) for n in self.support()]
+        lsats = [critic.lsat(n, rationality) for n in self.support()]
+        return logsumexp(lsats, b=probs)
+
+    def psat(self, critic: Critic, rationality: float) -> float:
+        return math.exp(self.lsat(critic, rationality))
 
 
 @attr.s(frozen=True, auto_attribs=True)
@@ -79,18 +104,25 @@ class TabularCritic:
             p2_action = self.p2_action(node, rationality)
             return self.action_value(p2_action, rationality)
 
-        values = np.array([self.action_value(a, rationality) for a in actions])
+        values = [self.action_value(a, rationality) for a in actions]
         
         if label == 'p1':                        # Player 1 case.
             return logsumexp(values)
 
         assert label == 'env'                    # Environment case.
-        probs = cast(List[float], [a.prob for a in actions])
+        dist = self.action_dist(node, rationality)
+        probs = [dist.prob(n) for n in dist.support()]
         return np.average(values, weights=probs)
 
     @cached_stat
     def lsat(self, node: Node, rationality: float) -> float:
-        ...
+        label = self.game.label(node)
+        if isinstance(label, bool):
+            return 0 if label else -float('inf')
+
+        actions = list(self.game.actions(node))  # Fix order of actions.
+        dist = self.action_dist(node, rationality)
+        return dist.lsat(self, rationality)
 
     def psat(self, node: Node, rationality: float) -> float:
         return math.exp(self.lsat(node, rationality))
@@ -104,7 +136,22 @@ class TabularCritic:
         pass
 
     def action_dist(self, state: Node, rationality: float) -> Distribution:
-        pass
+        label = self.game.label(state)
+        if isinstance(label, bool):
+            return Dist({})
+        elif label == 'p2':
+            p2_action = self.p2_action(state, rationality)
+            return Dist({p2_action.node: 1})  # Assume worst case.
+
+        actions = self.game.actions(state)
+
+        if label == 'env':
+            return Dist({a.node: a.prob for a in actions})  # type: ignore
+        else:
+            assert label == 'p1'
+            values = [self.action_value(a, rationality) for a in actions]
+            probs = softmax(values)
+            return Dist({a.node: p for a, p in zip(actions, probs)})
 
     def state_dist(self, state: Node, action: Node) -> Distribution:
         pass

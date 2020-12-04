@@ -15,6 +15,9 @@ class Distribution(Protocol):
     def support(self) -> Iterable[Node]:
         ...
 
+    def lsat(self, critic: Critic, rationality: float) -> float:
+        ...
+
     def psat(self, critic: Critic, rationality: float) -> float:
         ...
 
@@ -27,6 +30,9 @@ class Critic(Protocol):
         ...
 
     def psat(self, node: Node, rationality: float) -> float:
+        ...
+
+    def lsat(self, node: Node, rationality: float) -> float:
         ...
 
     def rationality(self, node: Node, psat: float) -> float:
