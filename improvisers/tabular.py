@@ -10,6 +10,7 @@ from typing import cast, Callable, TypeVar, Iterable
 import attr
 import numpy as np
 from scipy.special import logsumexp, softmax
+from scipy.optimize import brentq
 
 from improvisers.game_graph import Node, Action, GameGraph
 from improvisers.critic import Critic, Distribution
@@ -79,15 +80,17 @@ class TabularCritic:
     cache: Cache = attr.ib(factory=Cache)
 
     def p2_action(self, node: Node, rationality: float) -> Action:
+        """Optimal player two action to plan against."""
         assert self.game.label(node) == 'p2'
-        actions = list(self.game.actions(node))  # Fix order of actions.
+        actions = list(self.game.actions(node))
+        worst_psat = min(self.psat(a.node, rationality) for a in actions)
 
-        def key(action: Action) -> Tuple[float, float]:
-            lsat = self.lsat(action.node, rationality)
-            val = self.action_value(action, rationality)
-            return lsat, val
+        def replanned_entropy(action: Action) -> float:
+            node = action.node
+            rationality = max(self.rationality(node, worst_psat), 0)
+            return self.entropy(node, rationality)
 
-        return min(actions, key=key)
+        return min(actions, key=replanned_entropy)
 
     def action_value(self, action: Action, rationality: float) -> float:
         return self.value(action.node, rationality) + math.log(action.size)
@@ -128,8 +131,19 @@ class TabularCritic:
         return math.exp(self.lsat(node, rationality))
 
     @cached_stat
-    def rationality(self, node: Node, psat: float) -> float:
-        pass
+    def rationality(self, node: Node, psat: float, top: int = 100) -> float:
+        """Bracketed search for rationality to match psat."""
+        assert 0 <= psat <= 1
+
+        def f(coeff: float) -> float:
+            return self.psat(node, coeff) - psat
+
+        if f(-top) > 0:
+            return -top
+        elif f(top) < 0:
+            return top
+        else:
+            return brentq(f, -top, top)[0]
 
     @cached_stat
     def entropy(self, node: Node, rationality: float) -> float:
