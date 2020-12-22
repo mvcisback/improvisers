@@ -20,6 +20,10 @@ from improvisers.critic import Critic, Distribution
 class Dist:
     data: Dict[Node, float] = attr.ib(factory=dict)
 
+    def entropy(self) -> float:
+        probs = np.array(list(self.data.values()))
+        return -np.log(probs).sum()
+
     def sample(self, seed: Optional[int] = None) -> Node:
         if seed is not None:
             random.seed(seed)

@@ -6,6 +6,9 @@ from improvisers.game_graph import Action, Node, GameGraph
 
 
 class Distribution(Protocol):
+    def entropy(self) -> float:
+        ...
+
     def sample(self, seed: Optional[int] = None) -> Node:
         ...
 
