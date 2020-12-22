@@ -83,7 +83,7 @@ class TabularCritic:
     game: GameGraph
     cache: Cache = attr.ib(factory=Cache)
 
-    def p2_action(self, node: Node, rationality: float) -> Action:
+    def p2_action(self, node: Node, rationality: float) -> Tuple[Action, float]:
         """Optimal player two action to plan against."""
         assert self.game.label(node) == 'p2'
         actions = list(self.game.actions(node))
@@ -94,7 +94,8 @@ class TabularCritic:
             rationality = max(self.rationality(node, worst_psat), 0)
             return self.entropy(node, rationality)
 
-        return min(actions, key=replanned_entropy)
+        p2_action = min(actions, key=replanned_entropy)
+        return p2_action, replanned_entropy(p2_action)
 
     def action_value(self, action: Action, rationality: float) -> float:
         return self.value(action.node, rationality) + math.log(action.size)
@@ -108,7 +109,7 @@ class TabularCritic:
         actions = list(self.game.actions(node))  # Fix order of actions.
 
         if label == 'p2':                        # Player 2 case.
-            p2_action = self.p2_action(node, rationality)
+            p2_action, rationality = self.p2_action(node, rationality)
             return self.action_value(p2_action, rationality)
 
         values = [self.action_value(a, rationality) for a in actions]
@@ -126,8 +127,11 @@ class TabularCritic:
         label = self.game.label(node)
         if isinstance(label, bool):
             return 0 if label else -float('inf')
+        elif label == 'p2':
+            # Plan against optimal deterministic p2 policy.
+            p2_action, rationality = self.p2_action(node, rationality)
+            return self.lsat(p2_action.node, rationality)
 
-        actions = list(self.game.actions(node))  # Fix order of actions.
         dist = self.action_dist(node, rationality)
         return dist.lsat(self, rationality)
 
@@ -158,7 +162,7 @@ class TabularCritic:
         if isinstance(label, bool):
             return Dist({})
         elif label == 'p2':
-            p2_action = self.p2_action(state, rationality)
+            p2_action, _ = self.p2_action(state, rationality)
             return Dist({p2_action.node: 1})  # Assume worst case.
 
         actions = self.game.actions(state)
