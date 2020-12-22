@@ -24,28 +24,36 @@ class Distribution(Protocol):
 
 class Critic(Protocol):
     def value(self, node: Node, rationality: float) -> float:
+        """Soft value of node."""
         ...
 
     def entropy(self, node: Node, rationality: float) -> float:
+        """Causal Entropy of policy starting at node."""
         ...
 
     def psat(self, node: Node, rationality: float) -> float:
+        """Worst case sat probability of max ent policy from node."""
         ...
 
     def lsat(self, node: Node, rationality: float) -> float:
+        """Worst case sat log probability of max ent policy from node."""
         ...
 
     def rationality(self, node: Node, psat: float) -> float:
+        """Rationality induced by target satisfaction probability."""
         ...
 
     def action_dist(self, state: Node, rationality: float) -> Distribution:
+        """Predicted action distribution at state."""
         ...
 
     def state_dist(self, state: Node, action: Node) -> Distribution:
+        """Predicted next state distribution after apply action from state."""
         ...
 
     @staticmethod
     def from_game_graph(game_graph: GameGraph) -> Critic:
+        """Creates a critic from a given game graph."""
         ...
 
 
