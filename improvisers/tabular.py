@@ -155,7 +155,22 @@ class TabularCritic:
 
     @cached_stat
     def entropy(self, node: Node, rationality: float) -> float:
-        pass
+        label = self.game.label(node)
+        entropy = 0.0
+        if isinstance(label, bool):
+            return entropy  # Terminal node has no entropy.
+
+        dist = self.action_dist(node, rationality)
+        entropy += dist.entropy()  # Entropy contribution of this action.
+
+        if label == 'p2':  # Need to update rationality of children.
+            _, rationality = self.p2_action(node, rationality)
+
+        # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
+        for node2 in dist.support():
+            entropy += dist.prob(node2) * self.entropy(node2, rationality)
+        return entropy
+
 
     def action_dist(self, state: Node, rationality: float) -> Distribution:
         label = self.game.label(state)
