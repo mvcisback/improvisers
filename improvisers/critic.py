@@ -50,8 +50,8 @@ class Critic(Protocol):
         """Predicted action distribution at state."""
         ...
 
-    def state_dist(self, state: Node, action: Node) -> Distribution:
-        """Predicted next state distribution after apply action from state."""
+    def state_dist(self, action: Node, rationality: float) -> Distribution:
+        """Predicted p1 state distribution after apply action."""
         ...
 
     @staticmethod

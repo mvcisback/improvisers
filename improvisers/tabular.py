@@ -171,7 +171,6 @@ class TabularCritic:
             entropy += dist.prob(node2) * self.entropy(node2, rationality)
         return entropy
 
-
     def action_dist(self, state: Node, rationality: float) -> Distribution:
         label = self.game.label(state)
         if isinstance(label, bool):
@@ -190,8 +189,28 @@ class TabularCritic:
             probs = softmax(values)
             return Dist({a.node: p for a, p in zip(actions, probs)})
 
-    def state_dist(self, state: Node, action: Node) -> Distribution:
-        pass
+    def state_dist(self, action: Node, rationality: float) -> Distribution:
+        stack = [(0.0, action, rationality)]
+        node2prob = {}
+        while stack:
+            lprob, node, rationality = stack.pop()
+            label = self.game.label(node)
+
+            if isinstance(label, bool) or label == 'p1':
+                node2prob[node] = lprob
+                continue
+            elif label == 'p2':  # Plan against deterministic adversary.
+                p2_action, rationality = self.p2_action(node, rationality)
+                stack.append((lprob, p2_action.node, rationality))
+                continue
+            else:
+                dist = self.action_dist(node, rationality)
+                for node2 in dist.support():
+                    lprob2 = lprob + math.log(dist.prob(node2))
+                    stack.append((lprob2, node2, rationality))
+
+        return Dist(node2prob)
+
 
     @staticmethod
     def from_game_graph(game_graph: GameGraph) -> Critic:

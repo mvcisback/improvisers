@@ -64,7 +64,7 @@ def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
 
     while not isinstance(game.label(state), bool):
         action = critic.action_dist(state, rationality).sample()
-        state_dist = critic.state_dist(state, action)
+        state_dist = critic.state_dist(action, rationality)
         state, state_dist2 = yield action, state_dist
         rationality = replan(rationality, critic, state_dist, state_dist2)
 
