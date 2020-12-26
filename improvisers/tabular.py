@@ -214,4 +214,4 @@ class TabularCritic:
 
     @staticmethod
     def from_game_graph(game_graph: GameGraph) -> Critic:
-        pass
+        return TabularCritic(game_graph)
