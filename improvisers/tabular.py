@@ -65,9 +65,6 @@ class Cache:
         self.data[node, stat_key] = (val, rationality)
 
 
-NodeStatFunc = Callable[[TabularCritic, Node, float], float]
-
-
 def cached_stat(func: NodeStatFunc) -> NodeStatFunc:
     def wrapped(critic: TabularCritic, node: Node, rationality: float) -> float:
         if (node, func, rationality) in critic.cache:
@@ -151,7 +148,7 @@ class TabularCritic:
         elif f(top) < 0:
             return top
         else:
-            return brentq(f, -top, top)[0]
+            return brentq(f, -top, top)
 
     @cached_stat
     def entropy(self, node: Node, rationality: float) -> float:
@@ -215,3 +212,9 @@ class TabularCritic:
     @staticmethod
     def from_game_graph(game_graph: GameGraph) -> Critic:
         return TabularCritic(game_graph)
+
+
+NodeStatFunc = Callable[[TabularCritic, Node, float], float]
+
+
+__all__ = ['TabularCritic']

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Iterable, Mapping, Tuple, Protocol, Optional
 
 import attr
@@ -60,4 +62,4 @@ class Critic(Protocol):
         ...
 
 
-__all__ = ['Critic']
+__all__ = ['Critic', 'Distribution']

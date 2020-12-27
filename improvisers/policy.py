@@ -35,7 +35,7 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
         return dist2.psat(critic, x) - psat
 
     # Binary search for rationality coefficient.
-    return brentq(f, coeff, coeff + 100)[0]
+    return brentq(f, coeff, coeff + 100)
 
 
 def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
