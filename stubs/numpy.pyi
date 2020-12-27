@@ -22,7 +22,7 @@ def array(data: Sequence[float]) -> Array:
     ...
 
 
-def log(data: Union[Array, float]) -> Array:
+def log(data: Union[Array, float, Iterable[float]]) -> Array:
     ...
 
 
