@@ -55,3 +55,7 @@ def test_deterministic_critic():
 
     assert approx(psat) == psat2
     assert approx(coeff) == coeff2
+
+    # Test state dist
+    for i in range(5):
+        assert set(critic.state_dist(i, coeff).support()) == {i}
