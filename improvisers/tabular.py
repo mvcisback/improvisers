@@ -22,7 +22,7 @@ class Dist:
 
     def entropy(self) -> float:
         probs = [v for v in self.data.values() if v > 0]
-        return -np.log(probs).sum()
+        return -(probs * np.log(probs)).sum()
 
     def sample(self, seed: Optional[int] = None) -> Node:
         if seed is not None:

@@ -40,5 +40,18 @@ def test_deterministic_critic():
         lratio = math.log(dist.prob(i-1)) - math.log(dist.prob(0))
         assert lratio == approx(math.log(i))
 
+    # Test causal entropy of policy.
+    assert critic.entropy(0, coeff) == 0
+    assert critic.entropy(1, coeff) == 0
+    for i in range(2, 5):
+        prob1, prob2 = i / (i + 1), 1 / (i + 1)
+        delta = critic.entropy(i, coeff) - prob1 * critic.entropy(i-1, coeff)
+        assert delta == approx(-prob1*math.log(prob1) - prob2*math.log(prob2))
+
+    # Test psat and rationality are approximate inverses.
     psat = critic.psat(4, coeff)
     coeff2 = critic.rationality(4, psat)
+    psat2 = critic.psat(4, coeff2)
+
+    assert approx(psat) == psat2
+    assert approx(coeff) == coeff2
