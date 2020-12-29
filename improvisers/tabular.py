@@ -4,7 +4,8 @@ from __future__ import annotations
 import math
 import random
 from collections import defaultdict
-from typing import Any, Hashable, List, Literal, Mapping, Optional, Tuple, TypeVar, Union, DefaultDict, Dict
+from typing import Any, Hashable, List, Literal, Mapping, Optional
+from typing import Tuple, TypeVar, Union, DefaultDict, Dict
 from typing import cast, Callable, TypeVar, Iterable
 
 import attr
@@ -21,7 +22,7 @@ class Dist:
     data: Dict[Node, float] = attr.ib(factory=dict)
 
     def entropy(self) -> float:
-        probs = [v for v in self.data.values() if v > 0]
+        probs = np.array([v for v in self.data.values() if v > 0])
         return -(probs * np.log(probs)).sum()
 
     def sample(self, seed: Optional[int] = None) -> Node:
@@ -205,7 +206,7 @@ class TabularCritic:
                 for node2 in dist.support():
                     lprob2 = lprob + math.log(dist.prob(node2))
                     stack.append((lprob2, node2, rationality))
-
+        node2prob = {k: math.exp(v) for k, v in node2prob.items()}
         return Dist(node2prob)
 
 

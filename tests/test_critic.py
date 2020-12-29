@@ -59,3 +59,60 @@ def test_deterministic_critic():
     # Test state dist
     for i in range(5):
         assert set(critic.state_dist(i, coeff).support()) == {i}
+
+
+def test_mdp_critic():
+    game_graph = I.ExplicitGameGraph(
+        root=0,
+        graph={
+            0: (False, {}),
+            1: (True, {}),
+            2: ('env', {0: 1/3, 1: 2/3}),
+            3: ('p1', {1, 2}),
+            4: ('env', {0: 1/3, 3: 2/3}),
+            5: ('p1', {3, 4}),
+            6: ('env', {0: 1/3, 5: 2/3}),
+            7: ('p1', {5, 6}),
+        }
+    )
+    critic = I.TabularCritic.from_game_graph(game_graph)
+
+    def env_op(val, p=2/3):
+        return p * val
+
+    def p1_op(val, p=2/3):
+        return math.log(math.exp(val) + math.exp(val)**p)
+
+    # Test Values
+    coeff = math.log(2)
+    assert critic.value(0, coeff) == 0
+    assert critic.value(1, coeff) == coeff
+    for i in range(2, 8):
+        val = critic.value((i & -2) - 1, coeff)
+        expected = p1_op(val) if i % 2 else env_op(val)
+        assert critic.value(i, coeff)== approx(expected)
+
+    # Test action probabilities of policy.
+    for i in [3, 5, 7]:
+        action = (i & -2) - 1
+        val = critic.value(action, coeff)
+        expected = (1 + math.exp(val*(2/3 - 1)))**-1
+        assert critic.action_dist(i, coeff).prob(action) == approx(expected)
+
+    # TODO: test MDP entropy.
+
+    # Test psat and rationality are approximate inverses.
+    psat = critic.psat(4, coeff)
+    coeff2 = critic.rationality(4, psat)
+    psat2 = critic.psat(4, coeff2)
+
+    assert approx(psat) == psat2
+    assert approx(coeff) == coeff2
+
+    # Test state dist
+    for i in range(1, 8):
+        if i & 1:
+            assert set(critic.state_dist(i, coeff).support()) == {i}
+        else:
+            assert set(critic.state_dist(i, coeff).support()) == {0, i - 1}
+            assert critic.state_dist(i, coeff).prob(i - 1) == approx(2/3)
