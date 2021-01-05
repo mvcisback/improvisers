@@ -59,15 +59,14 @@ def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
     critic = Critic.from_game_graph(game)
     rationality = max(0, critic.rationality(state, psat))
 
-    if critic.entropy(state, 0) < entropy:
+    if critic.psat(state, rationality) < psat:
         raise ValueError(
-            "No improviser exists. "
-            "Uniform policy entropy is below entropy threshold."
+            "No improviser exists. Could not reach psat in this MDP"
         )
-    elif critic.psat(state, float('inf')):
+
+    if critic.entropy(state, rationality) < entropy:
         raise ValueError(
-            "No improviser exists. "
-            "Infinite rationality policy is below psat threshold."
+            "No improviser exists. Entropy constraint unreachable."
         )
 
     while not isinstance(game.label(state), bool):
