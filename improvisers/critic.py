@@ -44,8 +44,9 @@ class Critic(Protocol):
         """Worst case sat log probability of max ent policy from node."""
         ...
 
-    def rationality(self, node: Node, psat: float) -> float:
-        """Rationality induced by target satisfaction probability."""
+    def rationality(self, node: Node, target: float, 
+                    match_entropy: bool = False) -> float:
+        """Rationality induced by target satisfaction prob or entropy."""
         ...
 
     def action_dist(self, state: Node, rationality: float) -> Distribution:

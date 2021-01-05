@@ -81,22 +81,42 @@ class TabularCritic:
     game: GameGraph
     cache: Cache = attr.ib(factory=Cache)
 
-    def p2_action(self, node: Node, rationality: float) -> Tuple[Action, float]:
-        """Optimal player two action to plan against."""
+    def min_ent_action(self, node: Node, rationality: float) -> Action:
         assert self.game.label(node) == 'p2'
-        actions = list(self.game.actions(node))
-        worst_psat = min(self.psat(a.node, rationality) for a in actions)
+        return min(
+            self.game.actions(node), 
+            key=lambda n: self.entropy(n, rationality)
+        )
 
-        def replanned_entropy(action: Action) -> float:
+    def min_psat_action(
+            self, node: Node, rationality: float) -> Tuple[Action, float]:
+        # TODO: consider caching.
+        assert self.game.label(node) == 'p2'
+
+        # Compute entropy of planned action.
+        planned_action = self.min_ent_action(node, rationality)
+        target_entropy = self.action_entropy(planned_action, self.rationality)
+
+        # p1 will increase rationality until target entropy matched.
+        def replanned_psat(action: Action):
             node = action.node
-            rationality = max(self.rationality(node, worst_psat), 0)
-            return self.entropy(node, rationality)
+            rationality = max(self.rationality(
+                node, target_entropy, match_entropy=True
+            ))
+            return self.psat(node, rationality)
 
-        p2_action = min(actions, key=replanned_entropy)
-        return p2_action, replanned_entropy(p2_action)
+        # p2 will take the minimum psat of the replanned actions.
+        p2_action = min(actions, key=replanned_psat)
+        rationality = self.rationality(
+            p2_action.node, target_entropy, match_entropy=True
+        )
+        return p2_action, rationality
 
     def action_value(self, action: Action, rationality: float) -> float:
         return self.value(action.node, rationality) + math.log(action.size)
+
+    def action_entropy(self, action: Action, rationality: float) -> float:
+        return self.entropy(action.node, rationality) + math.log(action.size)
 
     @cached_stat
     def value(self, node: Node, rationality: float) -> float:
@@ -107,7 +127,7 @@ class TabularCritic:
         actions = list(self.game.actions(node))  # Fix order of actions.
 
         if label == 'p2':                        # Player 2 case.
-            p2_action, rationality = self.p2_action(node, rationality)
+            p2_action = self.min_ent_action(node, rationality)
             return self.action_value(p2_action, rationality)
 
         values = [self.action_value(a, rationality) for a in actions]
@@ -127,7 +147,8 @@ class TabularCritic:
             return 0 if label else -float('inf')
         elif label == 'p2':
             # Plan against optimal deterministic p2 policy.
-            p2_action, rationality = self.p2_action(node, rationality)
+            p2_action, rationality = self.min_psat_action(node, rationality)
+
             return self.lsat(p2_action.node, rationality)
 
         dist = self.action_dist(node, rationality)
@@ -137,12 +158,17 @@ class TabularCritic:
         return math.exp(self.lsat(node, rationality))
 
     @cached_stat
-    def rationality(self, node: Node, psat: float, top: int = 100) -> float:
-        """Bracketed search for rationality to match psat."""
-        assert 0 <= psat <= 1
+    def rationality(self, node: Node, target: float,
+                    top: int = 100, match_entropy: bool = False) -> float:
+        """Bracketed search for rationality to match either psat or entropy."""
+        assert target >= 0, "Entropy or probabilities must be positive."
+        if not match_entropy:  # Matching psat.
+            assert target <= 1, "Probabilities are less than 1!"
+
+        stat = self.entropy if match_entropy else self.psat
 
         def f(coeff: float) -> float:
-            return self.psat(node, coeff) - psat
+            return stat(node, coeff) - target
 
         if f(-top) > 0:
             return -top
@@ -161,8 +187,7 @@ class TabularCritic:
         dist = self.action_dist(node, rationality)
         entropy += dist.entropy()  # Entropy contribution of this action.
 
-        if label == 'p2':  # Need to update rationality of children.
-            _, rationality = self.p2_action(node, rationality)
+        # TODO: Need to account for action sizes.
 
         # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
         for node2 in dist.support():
@@ -174,7 +199,7 @@ class TabularCritic:
         if isinstance(label, bool):
             return Dist({})
         elif label == 'p2':
-            p2_action, _ = self.p2_action(state, rationality)
+            p2_action = self.min_ent_action(state, rationality)
             return Dist({p2_action.node: 1})  # Assume worst case.
 
         actions = self.game.actions(state)
@@ -198,7 +223,7 @@ class TabularCritic:
                 node2prob[node] = lprob
                 continue
             elif label == 'p2':  # Plan against deterministic adversary.
-                p2_action, rationality = self.p2_action(node, rationality)
+                p2_action = self.min_ent_action(node, rationality)
                 stack.append((lprob, p2_action.node, rationality))
                 continue
             else:

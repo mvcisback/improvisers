@@ -99,7 +99,7 @@ def test_mdp_critic():
         expected = (1 + math.exp(val*(2/3 - 1)))**-1
         assert critic.action_dist(i, coeff).prob(action) == approx(expected)
 
-    # TODO: test MDP entropy.
+    # TODO: test causal MDP entropy.
 
     # Test psat and rationality are approximate inverses.
     psat = critic.psat(4, coeff)
