@@ -109,7 +109,6 @@ def test_mdp_critic():
         expected = p1_prob_hi(action)
         assert critic.action_dist(i, coeff).prob(action) == approx(expected)
 
-    # TODO: test causal MDP entropy.
     assert critic.entropy(0, coeff) == 0
     assert critic.entropy(1, coeff) == 0
     for i in range(2 + 1, 8, 2):  # P1 node entropies.
