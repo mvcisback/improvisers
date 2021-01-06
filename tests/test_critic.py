@@ -92,14 +92,34 @@ def test_mdp_critic():
         expected = p1_op(val) if i % 2 else env_op(val)
         assert critic.value(i, coeff)== approx(expected)
 
+    def p1_prob_hi(i):
+        val = critic.value(i, coeff) 
+        return (1 + math.exp(val*(2/3 - 1)))**-1
+
     # Test action probabilities of policy.
     for i in [3, 5, 7]:
-        action = (i & -2) - 1
-        val = critic.value(action, coeff)
-        expected = (1 + math.exp(val*(2/3 - 1)))**-1
+        action = i - 2
+        expected = p1_prob_hi(action)
         assert critic.action_dist(i, coeff).prob(action) == approx(expected)
 
     # TODO: test causal MDP entropy.
+    assert critic.entropy(0, coeff) == 0
+    assert critic.entropy(1, coeff) == 0
+    for i in range(2 + 1, 8, 2):  # P1 node entropies.
+        prob = p1_prob_hi(i - 2)
+
+        expected = (    prob) * (-math.log(prob)     + critic.entropy(i - 2, coeff)) \
+                 + (1 - prob) * (-math.log(1 - prob) + critic.entropy(i - 1, coeff))
+
+        assert critic.entropy(i, coeff) == approx(expected)
+
+    for i in range(2, 8, 2):     # Env node entropies.
+        prob = 2 / 3
+
+        expected = (    prob) * (-math.log(prob)     + critic.entropy(i - 1, coeff)) \
+                 + (1 - prob) * (-math.log(1 - prob) + 0                           )
+
+        assert critic.entropy(i, coeff) == approx(expected)
 
     # Test psat and rationality are approximate inverses.
     psat = critic.psat(4, coeff)
