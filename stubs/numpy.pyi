@@ -33,5 +33,5 @@ def average(a: Iterable[float], weights: Iterable[float]) -> float:
     ...
 
 
-def isnan(Array) -> Array:
+def isnan(x: Array) -> Array:
     ...

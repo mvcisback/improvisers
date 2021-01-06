@@ -29,10 +29,10 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
     Returns:
       Rationality coefficient induced by actual state distribution.
     """
-    psat = dist1.psat(critic, coeff)
+    expected_entropy = dist1.entropy(critic, coeff)
 
     def f(x: float) -> float:
-        return dist2.psat(critic, x) - psat
+        return dist2.entropy(critic, x) - expected_entropy
 
     # Binary search for rationality coefficient.
     return brentq(f, coeff, coeff + 100)
@@ -57,7 +57,7 @@ def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
     """
     state = game.root
     critic = Critic.from_game_graph(game)
-    rationality = max(0, critic.rationality(state, psat))
+    rationality = max(0, critic.match_psat(state, psat))
 
     if critic.psat(state, rationality) < psat:
         raise ValueError(

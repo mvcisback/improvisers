@@ -50,7 +50,7 @@ def test_deterministic_critic():
 
     # Test psat and rationality are approximate inverses.
     psat = critic.psat(4, coeff)
-    coeff2 = critic.rationality(4, psat)
+    coeff2 = critic.match_psat(4, psat)
     psat2 = critic.psat(4, coeff2)
 
     assert approx(psat) == psat2
@@ -129,7 +129,7 @@ def test_mdp_critic():
 
     # Test psat and rationality are approximate inverses.
     psat = critic.psat(4, coeff)
-    coeff2 = critic.rationality(4, psat)
+    coeff2 = critic.match_psat(4, psat)
     psat2 = critic.psat(4, coeff2)
 
     assert approx(psat) == psat2

@@ -24,9 +24,16 @@ oo = float('inf')
 class Dist:
     data: Dict[Node, float] = attr.ib(factory=dict)
 
-    def entropy(self) -> float:
+    def entropy(self, critic: Critic, rationality: float) -> float:
+        # Entropy contribution of this action.
+        # TODO: Need to account for action sizes.
         probs = np.array([v for v in self.data.values() if v > 0])
-        return -(probs * np.log(probs)).sum()
+        entropy = -(probs * np.log(probs)).sum()
+
+        # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
+        for node in self.support():
+            entropy += self.prob(node) * critic.entropy(node, rationality)
+        return entropy
 
     def sample(self, seed: Optional[int] = None) -> Node:
         if seed is not None:
@@ -98,21 +105,23 @@ class TabularCritic:
 
         # Compute entropy of planned action.
         planned_action = self.min_ent_action(node, rationality)
-        target_entropy = self.action_entropy(planned_action, self.rationality)
+        entropy = self.action_entropy(planned_action, rationality)
 
         # p1 will increase rationality until target entropy matched.
-        def replanned_psat(action: Action):
+        def replanned_psat(action: Action) -> float:
             node = action.node
-            rationality = max(self.rationality(
-                node, target_entropy, match_entropy=True
-            ))
-            return self.psat(node, rationality)
+
+            if rationality < oo:  # Note: can't increase rationality past oo.
+                replanned_rationality = self.match_entropy(node, entropy)
+            return self.psat(node, max(replanned_rationality, 0))
 
         # p2 will take the minimum psat of the replanned actions.
+        actions = self.game.actions(node)
         p2_action = min(actions, key=replanned_psat)
-        rationality = self.rationality(
-            p2_action.node, target_entropy, match_entropy=True
-        )
+
+        if rationality < oo:
+            rationality = self.match_entropy(p2_action.node, entropy)
+
         return p2_action, rationality
 
     def action_value(self, action: Action, rationality: float) -> float:
@@ -163,9 +172,10 @@ class TabularCritic:
         assert sat_prob < 1.2
         return min(sat_prob, 1)  # Clip at 1 due to numerics.
 
-    @cached_stat
-    def rationality(self, node: Node, target: float,
-                    top: int = 100, match_entropy: bool = False) -> float:
+
+    def _rationality(self, node: Node, target: float,
+                    match_entropy: bool = False,
+                    top: int = 100) -> float:
         """Bracketed search for rationality to match either psat or entropy."""
         assert target >= 0, "Entropy or probabilities must be positive."
         if not match_entropy:  # Matching psat.
@@ -184,21 +194,21 @@ class TabularCritic:
             return brentq(f, -top, top)
 
     @cached_stat
+    def match_entropy(self, node: Node, target: float) -> float:
+        return self._rationality(node, target, match_entropy=True)
+
+    @cached_stat
+    def match_psat(self, node: Node, target: float) -> float:
+        return self._rationality(node, target, match_entropy=False)
+
+    @cached_stat
     def entropy(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
-        entropy = 0.0
         if isinstance(label, bool):
-            return entropy  # Terminal node has no entropy.
+            return 0.0  # Terminal node has no entropy.
 
         dist = self.action_dist(node, rationality)
-        entropy += dist.entropy()  # Entropy contribution of this action.
-
-        # TODO: Need to account for action sizes.
-
-        # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
-        for node2 in dist.support():
-            entropy += dist.prob(node2) * self.entropy(node2, rationality)
-        return entropy
+        return dist.entropy(self, rationality)
 
     def action_dist(self, state: Node, rationality: float) -> Distribution:
         label = self.game.label(state)

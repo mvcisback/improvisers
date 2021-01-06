@@ -8,9 +8,6 @@ from improvisers.game_graph import Action, Node, GameGraph
 
 
 class Distribution(Protocol):
-    def entropy(self) -> float:
-        ...
-
     def sample(self, seed: Optional[int] = None) -> Node:
         ...
 
@@ -24,6 +21,9 @@ class Distribution(Protocol):
         ...
 
     def psat(self, critic: Critic, rationality: float) -> float:
+        ...
+
+    def entropy(self, critic: Critic, rationality: float) -> float:
         ...
 
 
@@ -44,9 +44,12 @@ class Critic(Protocol):
         """Worst case sat log probability of max ent policy from node."""
         ...
 
-    def rationality(self, node: Node, target: float, 
-                    match_entropy: bool = False) -> float:
-        """Rationality induced by target satisfaction prob or entropy."""
+    def match_entropy(self, node: Node, target: float) -> float:
+        """Rationality induced by target entropy."""
+        ...
+
+    def match_psat(self, node: Node, target: float) -> float:
+        """Rationality induced by target psat."""
         ...
 
     def action_dist(self, state: Node, rationality: float) -> Distribution:
