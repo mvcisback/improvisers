@@ -17,6 +17,9 @@ class Array:
     def __iter__(self) -> Iterator[float]:
         ...
 
+    def any(self) -> bool:
+        ...
+
 
 def array(data: Sequence[float]) -> Array:
     ...
@@ -27,4 +30,8 @@ def log(data: Union[Array, float, Iterable[float]]) -> Array:
 
 
 def average(a: Iterable[float], weights: Iterable[float]) -> float:
+    ...
+
+
+def isnan(Array) -> Array:
     ...

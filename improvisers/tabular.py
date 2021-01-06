@@ -17,6 +17,9 @@ from improvisers.game_graph import Node, Action, GameGraph
 from improvisers.critic import Critic, Distribution
 
 
+oo = float('inf')
+
+
 @attr.s(frozen=True, auto_attribs=True)
 class Dist:
     data: Dict[Node, float] = attr.ib(factory=dict)
@@ -121,8 +124,9 @@ class TabularCritic:
     @cached_stat
     def value(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
+
         if isinstance(label, bool):              # Terminal node.
-            return rationality * label
+            return rationality * label if rationality < oo else float(label)
 
         actions = list(self.game.actions(node))  # Fix order of actions.
 
@@ -133,7 +137,7 @@ class TabularCritic:
         values = [self.action_value(a, rationality) for a in actions]
         
         if label == 'p1':                        # Player 1 case.
-            return logsumexp(values)
+            return logsumexp(values) if rationality < oo else max(values)
 
         assert label == 'env'                    # Environment case.
         dist = self.action_dist(node, rationality)
@@ -144,7 +148,7 @@ class TabularCritic:
     def lsat(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
         if isinstance(label, bool):
-            return 0 if label else -float('inf')
+            return 0 if label else -oo
         elif label == 'p2':
             # Plan against optimal deterministic p2 policy.
             p2_action, rationality = self.min_psat_action(node, rationality)
@@ -155,7 +159,9 @@ class TabularCritic:
         return dist.lsat(self, rationality)
 
     def psat(self, node: Node, rationality: float) -> float:
-        return math.exp(self.lsat(node, rationality))
+        sat_prob = math.exp(self.lsat(node, rationality))
+        assert sat_prob < 1.2
+        return min(sat_prob, 1)  # Clip at 1 due to numerics.
 
     @cached_stat
     def rationality(self, node: Node, target: float,
@@ -208,9 +214,16 @@ class TabularCritic:
             return Dist({a.node: a.prob for a in actions})  # type: ignore
         else:
             assert label == 'p1'
-            values = [self.action_value(a, rationality) for a in actions]
-            probs = softmax(values)
-            return Dist({a.node: p for a, p in zip(actions, probs)})
+            vals = [self.action_value(a, rationality) for a in actions]
+
+            if rationality < oo:
+                probs = softmax(vals)
+                return Dist({a.node: p for a, p in zip(actions, probs)})
+
+            # If rationality is oo, then we pick uniformly from the best action.
+            optimal = max(vals)
+            support = [a for a, v in zip(actions, vals) if v == optimal]
+            return Dist({a.node: 1 / len(support) for a in support})
 
     def state_dist(self, action: Node, rationality: float) -> Distribution:
         stack = [(0.0, action, rationality)]

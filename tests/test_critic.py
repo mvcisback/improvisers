@@ -7,7 +7,7 @@ import improvisers as I
 
 def test_deterministic_critic():
     game_graph = I.ExplicitGameGraph(
-        root=0,
+        root=4,
         graph={
             0: (False, {}),
             1: (True, {}),
@@ -60,10 +60,17 @@ def test_deterministic_critic():
     for i in range(5):
         assert set(critic.state_dist(i, coeff).support()) == {i}
 
+    # psat is monotonic
+    for i in range(6):
+        coeff = 10**(1 - i)
+        psat = critic.psat(game_graph.root, coeff)
+        assert 0 <= psat < 1
+    assert critic.psat(game_graph.root, float('inf')) == 1
+
 
 def test_mdp_critic():
     game_graph = I.ExplicitGameGraph(
-        root=0,
+        root=7,
         graph={
             0: (False, {}),
             1: (True, {}),
@@ -136,3 +143,10 @@ def test_mdp_critic():
         else:
             assert set(critic.state_dist(i, coeff).support()) == {0, i - 1}
             assert critic.state_dist(i, coeff).prob(i - 1) == approx(2/3)
+
+    # psat is monotonic
+    for i in range(6):
+        coeff = 10**(1 - i)
+        psat = critic.psat(game_graph.root, coeff)
+        assert 0 <= psat < 1
+    assert critic.psat(game_graph.root, float('inf')) == 1
