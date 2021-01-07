@@ -92,10 +92,12 @@ class TabularCritic:
     cache: Cache = attr.ib(factory=Cache)
 
     def min_ent_action(self, node: Node, rationality: float) -> Action:
+        # TODO: key should take min (entropy, psat) lexographically.
+
         assert self.game.label(node) == 'p2'
         return min(
             self.game.actions(node), 
-            key=lambda n: self.entropy(n, rationality)
+            key=lambda a: self.entropy(a.node, rationality)
         )
 
     def min_psat_action(
@@ -111,6 +113,7 @@ class TabularCritic:
         def replanned_psat(action: Action) -> float:
             node = action.node
 
+            replanned_rationality = rationality
             if rationality < oo:  # Note: can't increase rationality past oo.
                 replanned_rationality = self.match_entropy(node, entropy)
             return self.psat(node, max(replanned_rationality, 0))
