@@ -177,8 +177,8 @@ class TabularCritic:
 
 
     def _rationality(self, node: Node, target: float,
-                    match_entropy: bool = False,
-                    top: int = 100) -> float:
+                     match_entropy: bool = False,
+                     num_iter: int = 100) -> float:
         """Bracketed search for rationality to match either psat or entropy."""
         assert target >= 0, "Entropy or probabilities must be positive."
         if not match_entropy:  # Matching psat.
@@ -189,12 +189,21 @@ class TabularCritic:
         def f(coeff: float) -> float:
             return stat(node, coeff) - target
 
-        if f(-top) > 0:
-            return -top
-        elif f(top) < 0:
-            return top
-        else:
-            return brentq(f, -top, top)
+        # TODO: properly support negative rationality.
+        if f(-100) > 0:
+            return -100   # TODO: support -oo.
+        elif f(oo) < 0:
+            return oo
+
+        top = 1
+        for _ in range(num_iter):
+            try:
+                return brentq(f, -top, top)
+            except:
+                top *= 2
+        raise ValueError('uhuh')
+
+        return oo  # Effectively infinite.
 
     @cached_stat
     def match_entropy(self, node: Node, target: float) -> float:

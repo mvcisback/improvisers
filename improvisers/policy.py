@@ -5,6 +5,7 @@ from scipy.optimize import brentq
 
 from improvisers.game_graph import Node, GameGraph
 from improvisers.critic import Critic, Distribution
+from improvisers.tabular import TabularCritic
 
 
 Dist = Distribution
@@ -35,10 +36,19 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
         return dist2.entropy(critic, x) - expected_entropy
 
     # Binary search for rationality coefficient.
-    return brentq(f, coeff, coeff + 100)
+    offset = 1
+    for _ in range(100):
+        try:
+            return brentq(f, coeff, coeff + offset)
+        except:
+            offset *= 2
+    return float('inf')  # Effectively infinite.
 
 
-def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
+def policy(game: GameGraph,
+           psat: float = 0,
+           entropy: float = 0,
+           critic: Optional[Critic] = None) -> Improviser:
     """Find player 1 improviser for game.
 
     Args:
@@ -56,13 +66,16 @@ def policy(game: GameGraph, psat: float = 0, entropy: float = 0) -> Improviser:
       Whether or not player 1 won the game.
     """
     state = game.root
-    critic = Critic.from_game_graph(game)
-    rationality = max(0, critic.match_psat(state, psat))
 
-    if critic.psat(state, rationality) < psat:
+    if critic is None:
+        critic = TabularCritic(game)
+
+    if critic.psat(state, float('inf')) < psat:
         raise ValueError(
             "No improviser exists. Could not reach psat in this MDP"
         )
+
+    rationality = max(0, critic.match_psat(state, psat))
 
     if critic.entropy(state, rationality) < entropy:
         raise ValueError(

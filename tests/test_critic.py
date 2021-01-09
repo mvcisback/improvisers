@@ -188,7 +188,7 @@ def test_2player_game_critic():
 
 def test_stochastic_game_critic():
     game_graph = I.ExplicitGameGraph(
-        root=4,
+        root=5,
         graph={
             0: (False, {}),
             1: (True, {}),
