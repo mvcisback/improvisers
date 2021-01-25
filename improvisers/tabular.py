@@ -86,19 +86,49 @@ def cached_stat(func: NodeStatFunc) -> NodeStatFunc:
     return wrapped
 
 
-@attr.s(frozen=True, auto_attribs=True)
+@attr.s(auto_attribs=True, frozen=True)
 class TabularCritic:
     game: GameGraph
     cache: Cache = attr.ib(factory=Cache)
+    _min_ent_actions: Dict[Node, List[Action]] = attr.ib(factory=dict)
+
+    def min_ent_actions(self, node: Node) -> List[Action]:
+        """Return actions which minimizes the *achievable* entropy."""
+        if node in self._min_ent_actions:
+            return self._min_ent_actions[node]
+
+        actions, worst = [], oo
+        for a in self.game.actions(node):
+            entropy = self.entropy(a.node, 0)
+            if entropy < worst:
+                actions, worst = [a], entropy
+            elif entropy == worst:
+                actions.append(a)
+        self._min_ent_actions[node] = actions
+        return actions
 
     def min_ent_action(self, node: Node, rationality: float) -> Action:
-        # TODO: key should take min (entropy, psat) lexographically.
+        """Return action which minimizes the (*achievable* entropy, psat)."""
+        actions = self.min_ent_actions(node)
 
-        assert self.game.label(node) == 'p2'
-        return min(
-            self.game.actions(node), 
-            key=lambda a: self.entropy(a.node, rationality)
-        )
+        # Optimization. If all values are the same, the resulting
+        # policy will assign same probability to transitioning to this
+        # node. Commonly happens when two subtrees are equivalent.
+        val0 = self.action_value(actions[0], 0)
+
+        other_vals = (self.action_value(a, 0) for a in actions[1:])
+        if all(val == val0 for val in other_vals):
+            return actions[0]
+
+        # Break ties with psat.
+        # Note 1: Triggering this is fairly difficult to arrange in
+        #   practice, since entropy and values both sensitive to exact
+        #   model.
+        # Note 2: Unlike in general min psat action case, rationality
+        #   need note be updated since entropy is already matched.
+        # Note 3: This step cannot be cached since psat will, in general,
+        #   depend on the rationality.
+        return min(actions, key=lambda n: self.psat(n, rationality))
 
     def min_psat_action(
             self, node: Node, rationality: float) -> Tuple[Action, float]:
