@@ -132,7 +132,6 @@ class TabularCritic:
 
     def min_psat_action(
             self, node: Node, rationality: float) -> Tuple[Action, float]:
-        # TODO: consider caching.
         assert self.game.label(node) == 'p2'
 
         # Compute entropy of planned action.
