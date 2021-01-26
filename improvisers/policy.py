@@ -1,5 +1,4 @@
-import math
-from typing import Generator, Iterable, Optional, Protocol, Tuple
+from typing import Generator, Optional, Tuple
 
 from scipy.optimize import brentq
 
@@ -40,7 +39,7 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
     for _ in range(100):
         try:
             return brentq(f, coeff, coeff + offset)
-        except:
+        except ValueError:
             offset *= 2
     return float('inf')  # Effectively infinite.
 

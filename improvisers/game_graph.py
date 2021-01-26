@@ -1,5 +1,5 @@
-from typing import Any, Callable, Hashable, Literal, List, Mapping, Protocol
-from typing import Optional, Set, Tuple, Union, Iterable
+from typing import Hashable, Literal, Protocol
+from typing import Optional, Set, Union, Iterable
 
 
 import attr
@@ -46,11 +46,11 @@ def validate_game_graph(game_graph: GameGraph) -> None:
     """
     nodes = game_graph.nodes()
     graph = {n: {a.node for a in game_graph.actions(n)} for n in nodes}
-    
+
     for node in toposort(graph):
         actions = game_graph.actions(node)
         label = game_graph.label(node)
-        
+
         if isinstance(label, bool) == bool(actions):
             raise ValueError('Terminals <-> label is a reward!')
 

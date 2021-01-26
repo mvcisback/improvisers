@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Iterable, Mapping, Tuple, Protocol, Optional
+from typing import Iterable, Protocol, Optional
 
-import attr
-
-from improvisers.game_graph import Action, Node, GameGraph
+from improvisers.game_graph import Node, GameGraph
 
 
 class Distribution(Protocol):
