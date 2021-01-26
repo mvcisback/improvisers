@@ -1,6 +1,7 @@
 # Improvisers
 
-Library for modeling improvisers in stochastic games.
+Library for synthesizing Entropic Reactive Control Improvisers for
+stochastic games.
 
 [![Build Status](https://cloud.drone.io/api/badges/mvcisback/improvisers/status.svg)](https://cloud.drone.io/mvcisback/improvisers)
 [![Docs](https://img.shields.io/badge/API-link-color)](https://mvcisback.github.io/improvisers)
@@ -13,9 +14,9 @@ Library for modeling improvisers in stochastic games.
 
 # Installation
 
-If you just need to use `dfa`, you can just run:
+If you just need to use `improvisers`, you can just run:
 
-`$ pip install dfa`
+`$ pip install improvisers`
 
 For developers, note that this project uses the
 [poetry](https://poetry.eustace.io/) python package/dependency
