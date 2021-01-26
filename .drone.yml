@@ -10,5 +10,6 @@ steps:
   commands:
   - pip install poetry
   - poetry install
-  - poetry run pytest --flake8 --cov=dfa
+  - poetry run pytest --flake8 --cov=improvisers
+  - poetry run mypy --strict improvisers/
   - poetry run codecov
