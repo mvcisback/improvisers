@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.2" />
+<title>improvisers.tabular API documentation</title>
+<meta name="description" content="This module contains the tabular Critic implementation." />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>improvisers.tabular</code></h1>
+</header>
+<section id="section-intro">
+<p>This module contains the tabular Critic implementation.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;This module contains the tabular Critic implementation.&#34;&#34;&#34;
+from __future__ import annotations
+
+import math
+import random
+from typing import Hashable, List, Optional, Tuple, Dict, Callable, Iterable
+
+import attr
+import numpy as np
+from scipy.special import logsumexp, softmax
+from scipy.optimize import brentq
+
+from improvisers.game_graph import Node, Action, GameGraph
+from improvisers.critic import Critic, Distribution
+
+
+oo = float(&#39;inf&#39;)
+
+
+@attr.s(frozen=True, auto_attribs=True)
+class Dist:
+    data: Dict[Node, float] = attr.ib(factory=dict)
+
+    def entropy(self, critic: Critic, rationality: float) -&gt; float:
+        # Entropy contribution of this action.
+        # TODO: Need to account for action sizes.
+        probs = np.array([v for v in self.data.values() if v &gt; 0])
+        entropy = -(probs * np.log(probs)).sum()
+
+        # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
+        for node in self.support():
+            entropy += self.prob(node) * critic.entropy(node, rationality)
+        return entropy
+
+    def sample(self, seed: Optional[int] = None) -&gt; Node:
+        if seed is not None:
+            random.seed(seed)
+        return random.choices(*zip(*self.data.items()))[0]  # type: ignore
+
+    def prob(self, node: Node) -&gt; float:
+        return self.data[node]
+
+    def support(self) -&gt; Iterable[Node]:
+        return self.data.keys()
+
+    def lsat(self, critic: Critic, rationality: float) -&gt; float:
+        probs = [self.prob(n) for n in self.support()]
+        lsats = [critic.lsat(n, rationality) for n in self.support()]
+        return logsumexp(lsats, b=probs)
+
+    def psat(self, critic: Critic, rationality: float) -&gt; float:
+        return math.exp(self.lsat(critic, rationality))
+
+
+CacheKey = Tuple[Node, Hashable, float]
+
+
+@attr.s(frozen=True, auto_attribs=True)
+class Cache:
+    data: Dict[Tuple[Node, Hashable], Tuple[float, float]] = attr.ib(
+        factory=dict
+    )
+
+    def __contains__(self, key: CacheKey) -&gt; bool:
+        node, stat_key, rationality = key
+        if (node, stat_key) not in self.data:
+            return False
+        return self.data[node, stat_key][1] == rationality
+
+    def __getitem__(self, key: CacheKey) -&gt; float:
+        node, stat_key, _ = key
+        if key not in self:
+            raise ValueError(f&#34;key: {key} not in cache.&#34;)
+        return self.data[node, stat_key][0]
+
+    def __setitem__(self, key: CacheKey, val: float) -&gt; None:
+        node, stat_key, rationality = key
+        self.data[node, stat_key] = (val, rationality)
+
+
+def cached_stat(func: NodeStatFunc) -&gt; NodeStatFunc:
+    def wrap(critic: TabularCritic, node: Node, rationality: float) -&gt; float:
+        if (node, func, rationality) in critic.cache:
+            return critic.cache[node, func, rationality]
+        val = func(critic, node, rationality)
+        critic.cache[node, func, rationality] = val
+        return val
+    return wrap
+
+
+@attr.s(auto_attribs=True, frozen=True)
+class TabularCritic:
+    game: GameGraph
+    cache: Cache = attr.ib(factory=Cache)
+    _min_ent_actions: Dict[Node, List[Action]] = attr.ib(factory=dict)
+
+    def min_ent_actions(self, node: Node) -&gt; List[Action]:
+        &#34;&#34;&#34;Return actions which minimizes the *achievable* entropy.&#34;&#34;&#34;
+        if node in self._min_ent_actions:
+            return self._min_ent_actions[node]
+
+        actions, worst = [], oo
+        for a in self.game.actions(node):
+            entropy = self.entropy(a.node, 0)
+            if entropy &lt; worst:
+                actions, worst = [a], entropy
+            elif entropy == worst:
+                actions.append(a)
+        self._min_ent_actions[node] = actions
+        return actions
+
+    def min_ent_action(self, node: Node, rationality: float) -&gt; Action:
+        &#34;&#34;&#34;Return action which minimizes the (*achievable* entropy, psat).&#34;&#34;&#34;
+        actions = self.min_ent_actions(node)
+
+        # Optimization. If all values are the same, the resulting
+        # policy will assign same probability to transitioning to this
+        # node. Commonly happens when two subtrees are equivalent.
+        val0 = self.action_value(actions[0], 0)
+
+        other_vals = (self.action_value(a, 0) for a in actions[1:])
+        if all(val == val0 for val in other_vals):
+            return actions[0]
+
+        # Break ties with psat.
+        # Note 1: Triggering this is fairly difficult to arrange in
+        #   practice, since entropy and values both sensitive to exact
+        #   model.
+        # Note 2: Unlike in general min psat action case, rationality
+        #   need note be updated since entropy is already matched.
+        # Note 3: This step cannot be cached since psat will, in general,
+        #   depend on the rationality.
+        return min(actions, key=lambda n: self.psat(n, rationality))
+
+    def min_psat_action(
+            self, node: Node, rationality: float) -&gt; Tuple[Action, float]:
+        assert self.game.label(node) == &#39;p2&#39;
+
+        # Compute entropy of planned action.
+        planned_action = self.min_ent_action(node, rationality)
+        entropy = self.action_entropy(planned_action, rationality)
+
+        # p1 will increase rationality until target entropy matched.
+        def replanned_psat(action: Action) -&gt; float:
+            node = action.node
+
+            replanned_rationality = rationality
+            if rationality &lt; oo:  # Note: can&#39;t increase rationality past oo.
+                replanned_rationality = self.match_entropy(node, entropy)
+            return self.psat(node, max(replanned_rationality, 0))
+
+        # p2 will take the minimum psat of the replanned actions.
+        actions = self.game.actions(node)
+        p2_action = min(actions, key=replanned_psat)
+
+        if rationality &lt; oo:
+            rationality = self.match_entropy(p2_action.node, entropy)
+
+        return p2_action, rationality
+
+    def action_value(self, action: Action, rationality: float) -&gt; float:
+        return self.value(action.node, rationality) + math.log(action.size)
+
+    def action_entropy(self, action: Action, rationality: float) -&gt; float:
+        return self.entropy(action.node, rationality) + math.log(action.size)
+
+    @cached_stat
+    def value(self, node: Node, rationality: float) -&gt; float:
+        label = self.game.label(node)
+
+        if isinstance(label, bool):              # Terminal node.
+            return rationality * label if rationality &lt; oo else float(label)
+
+        actions = list(self.game.actions(node))  # Fix order of actions.
+
+        if label == &#39;p2&#39;:                        # Player 2 case.
+            p2_action = self.min_ent_action(node, rationality)
+            return self.action_value(p2_action, rationality)
+
+        values = [self.action_value(a, rationality) for a in actions]
+
+        if label == &#39;p1&#39;:                        # Player 1 case.
+            return logsumexp(values) if rationality &lt; oo else max(values)
+
+        assert label == &#39;env&#39;                    # Environment case.
+        dist = self.action_dist(node, rationality)
+        probs = [dist.prob(n) for n in dist.support()]
+        return np.average(values, weights=probs)
+
+    @cached_stat
+    def lsat(self, node: Node, rationality: float) -&gt; float:
+        label = self.game.label(node)
+        if isinstance(label, bool):
+            return 0 if label else -oo
+        elif label == &#39;p2&#39;:
+            # Plan against optimal deterministic p2 policy.
+            p2_action, rationality = self.min_psat_action(node, rationality)
+
+            return self.lsat(p2_action.node, rationality)
+
+        dist = self.action_dist(node, rationality)
+        return dist.lsat(self, rationality)
+
+    def psat(self, node: Node, rationality: float) -&gt; float:
+        sat_prob = math.exp(self.lsat(node, rationality))
+        assert sat_prob &lt; 1.2
+        return min(sat_prob, 1)  # Clip at 1 due to numerics.
+
+    def _rationality(self, node: Node, target: float,
+                     match_entropy: bool = False,
+                     num_iter: int = 100) -&gt; float:
+        &#34;&#34;&#34;Bracketed search for rationality to match either psat or entropy.&#34;&#34;&#34;
+        assert target &gt;= 0, &#34;Entropy or probabilities must be positive.&#34;
+        if not match_entropy:  # Matching psat.
+            assert target &lt;= 1, &#34;Probabilities are less than 1!&#34;
+
+        stat = self.entropy if match_entropy else self.psat
+
+        def f(coeff: float) -&gt; float:
+            return stat(node, coeff) - target
+
+        # TODO: properly support negative rationality.
+        if f(-100) &gt; 0:
+            return -100   # TODO: support -oo.
+        elif f(oo) &lt; 0:
+            return oo
+
+        top = 1
+        for _ in range(num_iter):
+            try:
+                return brentq(f, -top, top)
+            except ValueError:
+                top *= 2
+
+        return oo  # Effectively infinite.
+
+    @cached_stat
+    def match_entropy(self, node: Node, target: float) -&gt; float:
+        return self._rationality(node, target, match_entropy=True)
+
+    @cached_stat
+    def match_psat(self, node: Node, target: float) -&gt; float:
+        return self._rationality(node, target, match_entropy=False)
+
+    @cached_stat
+    def entropy(self, node: Node, rationality: float) -&gt; float:
+        label = self.game.label(node)
+        if isinstance(label, bool):
+            return 0.0  # Terminal node has no entropy.
+
+        dist = self.action_dist(node, rationality)
+        return dist.entropy(self, rationality)
+
+    def action_dist(self, state: Node, rationality: float) -&gt; Distribution:
+        label = self.game.label(state)
+        if isinstance(label, bool):
+            return Dist({})
+        elif label == &#39;p2&#39;:
+            p2_action = self.min_ent_action(state, rationality)
+            return Dist({p2_action.node: 1})  # Assume worst case.
+
+        actions = self.game.actions(state)
+
+        if label == &#39;env&#39;:
+            return Dist({a.node: a.prob for a in actions})  # type: ignore
+        else:
+            assert label == &#39;p1&#39;
+            vals = [self.action_value(a, rationality) for a in actions]
+
+            if rationality &lt; oo:
+                probs = softmax(vals)
+                return Dist({a.node: p for a, p in zip(actions, probs)})
+
+            # If rationality = oo, then we pick uniformly from the best action.
+            optimal = max(vals)
+            support = [a for a, v in zip(actions, vals) if v == optimal]
+            return Dist({a.node: 1 / len(support) for a in support})
+
+    def state_dist(self, action: Node, rationality: float) -&gt; Distribution:
+        stack = [(0.0, action, rationality)]
+        node2prob = {}
+        while stack:
+            lprob, node, rationality = stack.pop()
+            label = self.game.label(node)
+
+            if isinstance(label, bool) or label == &#39;p1&#39;:
+                node2prob[node] = lprob
+                continue
+            elif label == &#39;p2&#39;:  # Plan against deterministic adversary.
+                p2_action = self.min_ent_action(node, rationality)
+                stack.append((lprob, p2_action.node, rationality))
+                continue
+            else:
+                dist = self.action_dist(node, rationality)
+                for node2 in dist.support():
+                    lprob2 = lprob + math.log(dist.prob(node2))
+                    stack.append((lprob2, node2, rationality))
+        node2prob = {k: math.exp(v) for k, v in node2prob.items()}
+        return Dist(node2prob)
+
+    @staticmethod
+    def from_game_graph(game_graph: GameGraph) -&gt; Critic:
+        return TabularCritic(game_graph)
+
+
+NodeStatFunc = Callable[[TabularCritic, Node, float], float]
+
+
+__all__ = [&#39;TabularCritic&#39;]</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="improvisers.tabular.TabularCritic"><code class="flex name class">
+<span>class <span class="ident">TabularCritic</span></span>
+<span>(</span><span>game: GameGraph, cache: Cache = NOTHING, min_ent_actions: Dict[Node, List[Action]] = NOTHING)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Method generated by attrs for class TabularCritic.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TabularCritic:
+    game: GameGraph
+    cache: Cache = attr.ib(factory=Cache)
+    _min_ent_actions: Dict[Node, List[Action]] = attr.ib(factory=dict)
+
+    def min_ent_actions(self, node: Node) -&gt; List[Action]:
+        &#34;&#34;&#34;Return actions which minimizes the *achievable* entropy.&#34;&#34;&#34;
+        if node in self._min_ent_actions:
+            return self._min_ent_actions[node]
+
+        actions, worst = [], oo
+        for a in self.game.actions(node):
+            entropy = self.entropy(a.node, 0)
+            if entropy &lt; worst:
+                actions, worst = [a], entropy
+            elif entropy == worst:
+                actions.append(a)
+        self._min_ent_actions[node] = actions
+        return actions
+
+    def min_ent_action(self, node: Node, rationality: float) -&gt; Action:
+        &#34;&#34;&#34;Return action which minimizes the (*achievable* entropy, psat).&#34;&#34;&#34;
+        actions = self.min_ent_actions(node)
+
+        # Optimization. If all values are the same, the resulting
+        # policy will assign same probability to transitioning to this
+        # node. Commonly happens when two subtrees are equivalent.
+        val0 = self.action_value(actions[0], 0)
+
+        other_vals = (self.action_value(a, 0) for a in actions[1:])
+        if all(val == val0 for val in other_vals):
+            return actions[0]
+
+        # Break ties with psat.
+        # Note 1: Triggering this is fairly difficult to arrange in
+        #   practice, since entropy and values both sensitive to exact
+        #   model.
+        # Note 2: Unlike in general min psat action case, rationality
+        #   need note be updated since entropy is already matched.
+        # Note 3: This step cannot be cached since psat will, in general,
+        #   depend on the rationality.
+        return min(actions, key=lambda n: self.psat(n, rationality))
+
+    def min_psat_action(
+            self, node: Node, rationality: float) -&gt; Tuple[Action, float]:
+        assert self.game.label(node) == &#39;p2&#39;
+
+        # Compute entropy of planned action.
+        planned_action = self.min_ent_action(node, rationality)
+        entropy = self.action_entropy(planned_action, rationality)
+
+        # p1 will increase rationality until target entropy matched.
+        def replanned_psat(action: Action) -&gt; float:
+            node = action.node
+
+            replanned_rationality = rationality
+            if rationality &lt; oo:  # Note: can&#39;t increase rationality past oo.
+                replanned_rationality = self.match_entropy(node, entropy)
+            return self.psat(node, max(replanned_rationality, 0))
+
+        # p2 will take the minimum psat of the replanned actions.
+        actions = self.game.actions(node)
+        p2_action = min(actions, key=replanned_psat)
+
+        if rationality &lt; oo:
+            rationality = self.match_entropy(p2_action.node, entropy)
+
+        return p2_action, rationality
+
+    def action_value(self, action: Action, rationality: float) -&gt; float:
+        return self.value(action.node, rationality) + math.log(action.size)
+
+    def action_entropy(self, action: Action, rationality: float) -&gt; float:
+        return self.entropy(action.node, rationality) + math.log(action.size)
+
+    @cached_stat
+    def value(self, node: Node, rationality: float) -&gt; float:
+        label = self.game.label(node)
+
+        if isinstance(label, bool):              # Terminal node.
+            return rationality * label if rationality &lt; oo else float(label)
+
+        actions = list(self.game.actions(node))  # Fix order of actions.
+
+        if label == &#39;p2&#39;:                        # Player 2 case.
+            p2_action = self.min_ent_action(node, rationality)
+            return self.action_value(p2_action, rationality)
+
+        values = [self.action_value(a, rationality) for a in actions]
+
+        if label == &#39;p1&#39;:                        # Player 1 case.
+            return logsumexp(values) if rationality &lt; oo else max(values)
+
+        assert label == &#39;env&#39;                    # Environment case.
+        dist = self.action_dist(node, rationality)
+        probs = [dist.prob(n) for n in dist.support()]
+        return np.average(values, weights=probs)
+
+    @cached_stat
+    def lsat(self, node: Node, rationality: float) -&gt; float:
+        label = self.game.label(node)
+        if isinstance(label, bool):
+            return 0 if label else -oo
+        elif label == &#39;p2&#39;:
+            # Plan against optimal deterministic p2 policy.
+            p2_action, rationality = self.min_psat_action(node, rationality)
+
+            return self.lsat(p2_action.node, rationality)
+
+        dist = self.action_dist(node, rationality)
+        return dist.lsat(self, rationality)
+
+    def psat(self, node: Node, rationality: float) -&gt; float:
+        sat_prob = math.exp(self.lsat(node, rationality))
+        assert sat_prob &lt; 1.2
+        return min(sat_prob, 1)  # Clip at 1 due to numerics.
+
+    def _rationality(self, node: Node, target: float,
+                     match_entropy: bool = False,
+                     num_iter: int = 100) -&gt; float:
+        &#34;&#34;&#34;Bracketed search for rationality to match either psat or entropy.&#34;&#34;&#34;
+        assert target &gt;= 0, &#34;Entropy or probabilities must be positive.&#34;
+        if not match_entropy:  # Matching psat.
+            assert target &lt;= 1, &#34;Probabilities are less than 1!&#34;
+
+        stat = self.entropy if match_entropy else self.psat
+
+        def f(coeff: float) -&gt; float:
+            return stat(node, coeff) - target
+
+        # TODO: properly support negative rationality.
+        if f(-100) &gt; 0:
+            return -100   # TODO: support -oo.
+        elif f(oo) &lt; 0:
+            return oo
+
+        top = 1
+        for _ in range(num_iter):
+            try:
+                return brentq(f, -top, top)
+            except ValueError:
+                top *= 2
+
+        return oo  # Effectively infinite.
+
+    @cached_stat
+    def match_entropy(self, node: Node, target: float) -&gt; float:
+        return self._rationality(node, target, match_entropy=True)
+
+    @cached_stat
+    def match_psat(self, node: Node, target: float) -&gt; float:
+        return self._rationality(node, target, match_entropy=False)
+
+    @cached_stat
+    def entropy(self, node: Node, rationality: float) -&gt; float:
+        label = self.game.label(node)
+        if isinstance(label, bool):
+            return 0.0  # Terminal node has no entropy.
+
+        dist = self.action_dist(node, rationality)
+        return dist.entropy(self, rationality)
+
+    def action_dist(self, state: Node, rationality: float) -&gt; Distribution:
+        label = self.game.label(state)
+        if isinstance(label, bool):
+            return Dist({})
+        elif label == &#39;p2&#39;:
+            p2_action = self.min_ent_action(state, rationality)
+            return Dist({p2_action.node: 1})  # Assume worst case.
+
+        actions = self.game.actions(state)
+
+        if label == &#39;env&#39;:
+            return Dist({a.node: a.prob for a in actions})  # type: ignore
+        else:
+            assert label == &#39;p1&#39;
+            vals = [self.action_value(a, rationality) for a in actions]
+
+            if rationality &lt; oo:
+                probs = softmax(vals)
+                return Dist({a.node: p for a, p in zip(actions, probs)})
+
+            # If rationality = oo, then we pick uniformly from the best action.
+            optimal = max(vals)
+            support = [a for a, v in zip(actions, vals) if v == optimal]
+            return Dist({a.node: 1 / len(support) for a in support})
+
+    def state_dist(self, action: Node, rationality: float) -&gt; Distribution:
+        stack = [(0.0, action, rationality)]
+        node2prob = {}
+        while stack:
+            lprob, node, rationality = stack.pop()
+            label = self.game.label(node)
+
+            if isinstance(label, bool) or label == &#39;p1&#39;:
+                node2prob[node] = lprob
+                continue
+            elif label == &#39;p2&#39;:  # Plan against deterministic adversary.
+                p2_action = self.min_ent_action(node, rationality)
+                stack.append((lprob, p2_action.node, rationality))
+                continue
+            else:
+                dist = self.action_dist(node, rationality)
+                for node2 in dist.support():
+                    lprob2 = lprob + math.log(dist.prob(node2))
+                    stack.append((lprob2, node2, rationality))
+        node2prob = {k: math.exp(v) for k, v in node2prob.items()}
+        return Dist(node2prob)
+
+    @staticmethod
+    def from_game_graph(game_graph: GameGraph) -&gt; Critic:
+        return TabularCritic(game_graph)</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="improvisers.tabular.TabularCritic.cache"><code class="name">var <span class="ident">cache</span> : improvisers.tabular.Cache</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.game"><code class="name">var <span class="ident">game</span> : <a title="improvisers.game_graph.GameGraph" href="game_graph.html#improvisers.game_graph.GameGraph">GameGraph</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Static methods</h3>
+<dl>
+<dt id="improvisers.tabular.TabularCritic.from_game_graph"><code class="name flex">
+<span>def <span class="ident">from_game_graph</span></span>(<span>game_graph: GameGraph) ‑> <a title="improvisers.critic.Critic" href="critic.html#improvisers.critic.Critic">Critic</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def from_game_graph(game_graph: GameGraph) -&gt; Critic:
+    return TabularCritic(game_graph)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="improvisers.tabular.TabularCritic.action_dist"><code class="name flex">
+<span>def <span class="ident">action_dist</span></span>(<span>self, state: Node, rationality: float) ‑> <a title="improvisers.critic.Distribution" href="critic.html#improvisers.critic.Distribution">Distribution</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_dist(self, state: Node, rationality: float) -&gt; Distribution:
+    label = self.game.label(state)
+    if isinstance(label, bool):
+        return Dist({})
+    elif label == &#39;p2&#39;:
+        p2_action = self.min_ent_action(state, rationality)
+        return Dist({p2_action.node: 1})  # Assume worst case.
+
+    actions = self.game.actions(state)
+
+    if label == &#39;env&#39;:
+        return Dist({a.node: a.prob for a in actions})  # type: ignore
+    else:
+        assert label == &#39;p1&#39;
+        vals = [self.action_value(a, rationality) for a in actions]
+
+        if rationality &lt; oo:
+            probs = softmax(vals)
+            return Dist({a.node: p for a, p in zip(actions, probs)})
+
+        # If rationality = oo, then we pick uniformly from the best action.
+        optimal = max(vals)
+        support = [a for a, v in zip(actions, vals) if v == optimal]
+        return Dist({a.node: 1 / len(support) for a in support})</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.action_entropy"><code class="name flex">
+<span>def <span class="ident">action_entropy</span></span>(<span>self, action: Action, rationality: float) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_entropy(self, action: Action, rationality: float) -&gt; float:
+    return self.entropy(action.node, rationality) + math.log(action.size)</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.action_value"><code class="name flex">
+<span>def <span class="ident">action_value</span></span>(<span>self, action: Action, rationality: float) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_value(self, action: Action, rationality: float) -&gt; float:
+    return self.value(action.node, rationality) + math.log(action.size)</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.entropy"><code class="name flex">
+<span>def <span class="ident">entropy</span></span>(<span>critic: <a title="improvisers.tabular.TabularCritic" href="#improvisers.tabular.TabularCritic">TabularCritic</a>, node: Node, rationality: float) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def wrap(critic: TabularCritic, node: Node, rationality: float) -&gt; float:
+    if (node, func, rationality) in critic.cache:
+        return critic.cache[node, func, rationality]
+    val = func(critic, node, rationality)
+    critic.cache[node, func, rationality] = val
+    return val</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.lsat"><code class="name flex">
+<span>def <span class="ident">lsat</span></span>(<span>critic: <a title="improvisers.tabular.TabularCritic" href="#improvisers.tabular.TabularCritic">TabularCritic</a>, node: Node, rationality: float) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def wrap(critic: TabularCritic, node: Node, rationality: float) -&gt; float:
+    if (node, func, rationality) in critic.cache:
+        return critic.cache[node, func, rationality]
+    val = func(critic, node, rationality)
+    critic.cache[node, func, rationality] = val
+    return val</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.match_entropy"><code class="name flex">
+<span>def <span class="ident">match_entropy</span></span>(<span>critic: <a title="improvisers.tabular.TabularCritic" href="#improvisers.tabular.TabularCritic">TabularCritic</a>, node: Node, rationality: float) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def wrap(critic: TabularCritic, node: Node, rationality: float) -&gt; float:
+    if (node, func, rationality) in critic.cache:
+        return critic.cache[node, func, rationality]
+    val = func(critic, node, rationality)
+    critic.cache[node, func, rationality] = val
+    return val</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.match_psat"><code class="name flex">
+<span>def <span class="ident">match_psat</span></span>(<span>critic: <a title="improvisers.tabular.TabularCritic" href="#improvisers.tabular.TabularCritic">TabularCritic</a>, node: Node, rationality: float) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def wrap(critic: TabularCritic, node: Node, rationality: float) -&gt; float:
+    if (node, func, rationality) in critic.cache:
+        return critic.cache[node, func, rationality]
+    val = func(critic, node, rationality)
+    critic.cache[node, func, rationality] = val
+    return val</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.min_ent_action"><code class="name flex">
+<span>def <span class="ident">min_ent_action</span></span>(<span>self, node: Node, rationality: float) ‑> <a title="improvisers.game_graph.Action" href="game_graph.html#improvisers.game_graph.Action">Action</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return action which minimizes the (<em>achievable</em> entropy, psat).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def min_ent_action(self, node: Node, rationality: float) -&gt; Action:
+    &#34;&#34;&#34;Return action which minimizes the (*achievable* entropy, psat).&#34;&#34;&#34;
+    actions = self.min_ent_actions(node)
+
+    # Optimization. If all values are the same, the resulting
+    # policy will assign same probability to transitioning to this
+    # node. Commonly happens when two subtrees are equivalent.
+    val0 = self.action_value(actions[0], 0)
+
+    other_vals = (self.action_value(a, 0) for a in actions[1:])
+    if all(val == val0 for val in other_vals):
+        return actions[0]
+
+    # Break ties with psat.
+    # Note 1: Triggering this is fairly difficult to arrange in
+    #   practice, since entropy and values both sensitive to exact
+    #   model.
+    # Note 2: Unlike in general min psat action case, rationality
+    #   need note be updated since entropy is already matched.
+    # Note 3: This step cannot be cached since psat will, in general,
+    #   depend on the rationality.
+    return min(actions, key=lambda n: self.psat(n, rationality))</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.min_ent_actions"><code class="name flex">
+<span>def <span class="ident">min_ent_actions</span></span>(<span>self, node: Node) ‑> List[<a title="improvisers.game_graph.Action" href="game_graph.html#improvisers.game_graph.Action">Action</a>]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return actions which minimizes the <em>achievable</em> entropy.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def min_ent_actions(self, node: Node) -&gt; List[Action]:
+    &#34;&#34;&#34;Return actions which minimizes the *achievable* entropy.&#34;&#34;&#34;
+    if node in self._min_ent_actions:
+        return self._min_ent_actions[node]
+
+    actions, worst = [], oo
+    for a in self.game.actions(node):
+        entropy = self.entropy(a.node, 0)
+        if entropy &lt; worst:
+            actions, worst = [a], entropy
+        elif entropy == worst:
+            actions.append(a)
+    self._min_ent_actions[node] = actions
+    return actions</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.min_psat_action"><code class="name flex">
+<span>def <span class="ident">min_psat_action</span></span>(<span>self, node: Node, rationality: float) ‑> Tuple[<a title="improvisers.game_graph.Action" href="game_graph.html#improvisers.game_graph.Action">Action</a>, float]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def min_psat_action(
+        self, node: Node, rationality: float) -&gt; Tuple[Action, float]:
+    assert self.game.label(node) == &#39;p2&#39;
+
+    # Compute entropy of planned action.
+    planned_action = self.min_ent_action(node, rationality)
+    entropy = self.action_entropy(planned_action, rationality)
+
+    # p1 will increase rationality until target entropy matched.
+    def replanned_psat(action: Action) -&gt; float:
+        node = action.node
+
+        replanned_rationality = rationality
+        if rationality &lt; oo:  # Note: can&#39;t increase rationality past oo.
+            replanned_rationality = self.match_entropy(node, entropy)
+        return self.psat(node, max(replanned_rationality, 0))
+
+    # p2 will take the minimum psat of the replanned actions.
+    actions = self.game.actions(node)
+    p2_action = min(actions, key=replanned_psat)
+
+    if rationality &lt; oo:
+        rationality = self.match_entropy(p2_action.node, entropy)
+
+    return p2_action, rationality</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.psat"><code class="name flex">
+<span>def <span class="ident">psat</span></span>(<span>self, node: Node, rationality: float) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def psat(self, node: Node, rationality: float) -&gt; float:
+    sat_prob = math.exp(self.lsat(node, rationality))
+    assert sat_prob &lt; 1.2
+    return min(sat_prob, 1)  # Clip at 1 due to numerics.</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.state_dist"><code class="name flex">
+<span>def <span class="ident">state_dist</span></span>(<span>self, action: Node, rationality: float) ‑> <a title="improvisers.critic.Distribution" href="critic.html#improvisers.critic.Distribution">Distribution</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def state_dist(self, action: Node, rationality: float) -&gt; Distribution:
+    stack = [(0.0, action, rationality)]
+    node2prob = {}
+    while stack:
+        lprob, node, rationality = stack.pop()
+        label = self.game.label(node)
+
+        if isinstance(label, bool) or label == &#39;p1&#39;:
+            node2prob[node] = lprob
+            continue
+        elif label == &#39;p2&#39;:  # Plan against deterministic adversary.
+            p2_action = self.min_ent_action(node, rationality)
+            stack.append((lprob, p2_action.node, rationality))
+            continue
+        else:
+            dist = self.action_dist(node, rationality)
+            for node2 in dist.support():
+                lprob2 = lprob + math.log(dist.prob(node2))
+                stack.append((lprob2, node2, rationality))
+    node2prob = {k: math.exp(v) for k, v in node2prob.items()}
+    return Dist(node2prob)</code></pre>
+</details>
+</dd>
+<dt id="improvisers.tabular.TabularCritic.value"><code class="name flex">
+<span>def <span class="ident">value</span></span>(<span>critic: <a title="improvisers.tabular.TabularCritic" href="#improvisers.tabular.TabularCritic">TabularCritic</a>, node: Node, rationality: float) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def wrap(critic: TabularCritic, node: Node, rationality: float) -&gt; float:
+    if (node, func, rationality) in critic.cache:
+        return critic.cache[node, func, rationality]
+    val = func(critic, node, rationality)
+    critic.cache[node, func, rationality] = val
+    return val</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="improvisers" href="index.html">improvisers</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="improvisers.tabular.TabularCritic" href="#improvisers.tabular.TabularCritic">TabularCritic</a></code></h4>
+<ul class="two-column">
+<li><code><a title="improvisers.tabular.TabularCritic.action_dist" href="#improvisers.tabular.TabularCritic.action_dist">action_dist</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.action_entropy" href="#improvisers.tabular.TabularCritic.action_entropy">action_entropy</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.action_value" href="#improvisers.tabular.TabularCritic.action_value">action_value</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.cache" href="#improvisers.tabular.TabularCritic.cache">cache</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.entropy" href="#improvisers.tabular.TabularCritic.entropy">entropy</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.from_game_graph" href="#improvisers.tabular.TabularCritic.from_game_graph">from_game_graph</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.game" href="#improvisers.tabular.TabularCritic.game">game</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.lsat" href="#improvisers.tabular.TabularCritic.lsat">lsat</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.match_entropy" href="#improvisers.tabular.TabularCritic.match_entropy">match_entropy</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.match_psat" href="#improvisers.tabular.TabularCritic.match_psat">match_psat</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.min_ent_action" href="#improvisers.tabular.TabularCritic.min_ent_action">min_ent_action</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.min_ent_actions" href="#improvisers.tabular.TabularCritic.min_ent_actions">min_ent_actions</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.min_psat_action" href="#improvisers.tabular.TabularCritic.min_psat_action">min_psat_action</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.psat" href="#improvisers.tabular.TabularCritic.psat">psat</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.state_dist" href="#improvisers.tabular.TabularCritic.state_dist">state_dist</a></code></li>
+<li><code><a title="improvisers.tabular.TabularCritic.value" href="#improvisers.tabular.TabularCritic.value">value</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+</footer>
+</body>
+</html>
