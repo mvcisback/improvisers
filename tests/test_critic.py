@@ -1,3 +1,5 @@
+# flake8: noqa
+
 from pytest import approx
 
 import math

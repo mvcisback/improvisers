@@ -1,8 +1,8 @@
-import improvisers as I
+import improvisers as RCI
 
 
 def test_game_graph_smoke():
-    game_graph = I.ExplicitGameGraph(
+    game_graph = RCI.ExplicitGameGraph(
         root=1,
         graph={
             1: ('p1', {2, 3}),

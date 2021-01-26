@@ -2,12 +2,12 @@ import pytest
 
 import random
 
-import improvisers as I
+import improvisers as RCI
 from improvisers.tabular import Dist
 
 
 def test_mdp_policy_smoke():
-    game_graph = I.ExplicitGameGraph(
+    game_graph = RCI.ExplicitGameGraph(
         root=7,
         graph={
             0: (False, {}),
@@ -20,7 +20,7 @@ def test_mdp_policy_smoke():
             7: ('p1', {5, 6}),
         }
     )
-    policy = I.policy(game_graph, psat=0.8)
+    policy = RCI.policy(game_graph, psat=0.8)
 
     random.seed(1)
     observation = None
@@ -34,7 +34,7 @@ def test_mdp_policy_smoke():
 
 
 def test_stochastic_game_policy_smoke():
-    game_graph = I.ExplicitGameGraph(
+    game_graph = RCI.ExplicitGameGraph(
         root=5,
         graph={
             0: (False, {}),
@@ -47,14 +47,14 @@ def test_stochastic_game_policy_smoke():
     )
 
     with pytest.raises(ValueError):   # Unachievable psat, achievable entropy.
-        policy = I.policy(game_graph, entropy=0, psat=1/3 + 0.1)
+        policy = RCI.policy(game_graph, entropy=0, psat=1/3 + 0.1)
         next(policy)
 
     with pytest.raises(ValueError):   # Achievable psat, unachievable entropy.
-        policy = I.policy(game_graph, entropy=1.5, psat=1/3)
+        policy = RCI.policy(game_graph, entropy=1.5, psat=1/3)
         next(policy)
 
-    policy = I.policy(game_graph, psat=1/3)
+    policy = RCI.policy(game_graph, psat=1/3)
     observation = None
     while True:
         try:
@@ -62,7 +62,7 @@ def test_stochastic_game_policy_smoke():
             if action == 4:
                 observation = 3, Dist({2: 0.8, 3: 0.2})
             else:
-                observation = state_dist.sample(), state_dist  # Env player move.
+                observation = state_dist.sample(), state_dist  # Env move.
 
         except StopIteration as e:
             assert game_graph.label(observation[0]) is e.value

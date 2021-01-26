@@ -3,10 +3,7 @@ from __future__ import annotations
 
 import math
 import random
-from collections import defaultdict
-from typing import Any, Hashable, List, Literal, Mapping, Optional
-from typing import Tuple, TypeVar, Union, DefaultDict, Dict
-from typing import cast, Callable, TypeVar, Iterable
+from typing import Hashable, List, Optional, Tuple, Dict, Callable, Iterable
 
 import attr
 import numpy as np
@@ -55,35 +52,40 @@ class Dist:
         return math.exp(self.lsat(critic, rationality))
 
 
+CacheKey = Tuple[Node, Hashable, float]
+
+
 @attr.s(frozen=True, auto_attribs=True)
 class Cache:
-    data: Dict[Tuple[Node, Hashable], Tuple[float, float]] = attr.ib(factory=dict)
+    data: Dict[Tuple[Node, Hashable], Tuple[float, float]] = attr.ib(
+        factory=dict
+    )
 
-    def __contains__(self, key: Tuple[Node, Hashable, float]) -> bool:
+    def __contains__(self, key: CacheKey) -> bool:
         node, stat_key, rationality = key
         if (node, stat_key) not in self.data:
             return False
         return self.data[node, stat_key][1] == rationality
 
-    def __getitem__(self, key: Tuple[Node, Hashable, float]) -> float:
+    def __getitem__(self, key: CacheKey) -> float:
         node, stat_key, _ = key
         if key not in self:
             raise ValueError(f"key: {key} not in cache.")
         return self.data[node, stat_key][0]
 
-    def __setitem__(self, key: Tuple[Node, Hashable, float], val: float) -> None:
+    def __setitem__(self, key: CacheKey, val: float) -> None:
         node, stat_key, rationality = key
         self.data[node, stat_key] = (val, rationality)
 
 
 def cached_stat(func: NodeStatFunc) -> NodeStatFunc:
-    def wrapped(critic: TabularCritic, node: Node, rationality: float) -> float:
+    def wrap(critic: TabularCritic, node: Node, rationality: float) -> float:
         if (node, func, rationality) in critic.cache:
             return critic.cache[node, func, rationality]
         val = func(critic, node, rationality)
         critic.cache[node, func, rationality] = val
         return val
-    return wrapped
+    return wrap
 
 
 @attr.s(auto_attribs=True, frozen=True)
@@ -176,7 +178,7 @@ class TabularCritic:
             return self.action_value(p2_action, rationality)
 
         values = [self.action_value(a, rationality) for a in actions]
-        
+
         if label == 'p1':                        # Player 1 case.
             return logsumexp(values) if rationality < oo else max(values)
 
@@ -204,7 +206,6 @@ class TabularCritic:
         assert sat_prob < 1.2
         return min(sat_prob, 1)  # Clip at 1 due to numerics.
 
-
     def _rationality(self, node: Node, target: float,
                      match_entropy: bool = False,
                      num_iter: int = 100) -> float:
@@ -228,9 +229,8 @@ class TabularCritic:
         for _ in range(num_iter):
             try:
                 return brentq(f, -top, top)
-            except:
+            except ValueError:
                 top *= 2
-        raise ValueError('uhuh')
 
         return oo  # Effectively infinite.
 
@@ -271,7 +271,7 @@ class TabularCritic:
                 probs = softmax(vals)
                 return Dist({a.node: p for a, p in zip(actions, probs)})
 
-            # If rationality is oo, then we pick uniformly from the best action.
+            # If rationality = oo, then we pick uniformly from the best action.
             optimal = max(vals)
             support = [a for a, v in zip(actions, vals) if v == optimal]
             return Dist({a.node: 1 / len(support) for a in support})
@@ -297,7 +297,6 @@ class TabularCritic:
                     stack.append((lprob2, node2, rationality))
         node2prob = {k: math.exp(v) for k, v in node2prob.items()}
         return Dist(node2prob)
-
 
     @staticmethod
     def from_game_graph(game_graph: GameGraph) -> Critic:
