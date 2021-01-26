@@ -5,7 +5,7 @@ description = "Library for modeling improvisers in stochastic games."
 authors = ["Marcell Vazquez-Chanlatte <mvc@linux.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 attrs = "^20.3.0"
 toposort = "^1.5"
 scipy = "^1.5.4"
