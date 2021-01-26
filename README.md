@@ -27,3 +27,20 @@ run:
 
 # Usage
 
+```python
+from improvisers import policy, ExplicitGameGraph
+
+game_graph = RCI.ExplicitGameGraph(
+    root=5,
+    graph={
+        0: (False, {}),
+        1: (True, {}),
+        2: ('env', {0: 2/3, 1: 1/3}),
+        3: ('p1', {0, 2}),
+        4: ('p2', {2, 3}),
+        5: ('p1', {4, 3}),
+    }
+)
+
+policy = policy(game_graph, psat=1/3)
+```
