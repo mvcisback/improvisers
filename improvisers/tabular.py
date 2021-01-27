@@ -134,6 +134,7 @@ class TabularCritic:
 
     def min_psat_action(
             self, node: Node, rationality: float) -> Tuple[Action, float]:
+        """Return action which minimizes psat of rationality policy."""
         assert self.game.label(node) == 'p2'
 
         # Compute entropy of planned action.
