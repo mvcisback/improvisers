@@ -1,3 +1,5 @@
+"""Critic Protocol for GameGraph"""
+
 from __future__ import annotations
 
 from typing import Iterable, Protocol, Optional
@@ -6,22 +8,29 @@ from improvisers.game_graph import Node, GameGraph
 
 
 class Distribution(Protocol):
+    """Protocol for critic aware distribution over nodes."""
     def sample(self, seed: Optional[int] = None) -> Node:
+        """Returns a sampled node from distribution."""
         ...
 
     def prob(self, node: Node) -> float:
+        """Returns probability of given node."""
         ...
 
     def support(self) -> Iterable[Node]:
+        """Iterate over nodes with non-zero probability."""
         ...
 
     def lsat(self, critic: Critic, rationality: float) -> float:
+        """Return log probability of p1 winning under this distribution."""
         ...
 
     def psat(self, critic: Critic, rationality: float) -> float:
+        """Return probability of p1 winning given under this distribution."""
         ...
 
     def entropy(self, critic: Critic, rationality: float) -> float:
+        """Return log probability of p1 winning under this distribution."""
         ...
 
 

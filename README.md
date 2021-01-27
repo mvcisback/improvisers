@@ -30,7 +30,7 @@ run:
 ```python
 from improvisers import policy, ExplicitGameGraph
 
-game_graph = RCI.ExplicitGameGraph(
+game_graph = ExplicitGameGraph(
     root=5,
     graph={
         0: (False, {}),

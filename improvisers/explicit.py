@@ -1,3 +1,5 @@
+"""Example GameGraph implementation based on dictionary adjacency list."""
+
 from __future__ import annotations
 
 from typing import Mapping, Set, Tuple, Union, Iterable

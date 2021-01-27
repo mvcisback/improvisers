@@ -1,3 +1,5 @@
+"""Define GameGraph Protocol."""
+
 from typing import Hashable, Literal, Protocol
 from typing import Optional, Set, Union, Iterable
 
@@ -12,6 +14,7 @@ NodeKinds = Union[Literal['p1'], Literal['p2'], Literal['env'], bool]
 
 @attr.s(frozen=True, auto_attribs=True)
 class Action:
+    """Annotated edge in game graph."""
     node: Node
     prob: Optional[float] = None
     size: int = 1
