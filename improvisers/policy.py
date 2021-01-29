@@ -1,3 +1,4 @@
+import collections
 from typing import Generator, Optional, Tuple, Union, Sequence
 
 import attr
@@ -81,9 +82,14 @@ class Actor:
         while not isinstance(game.label(state), bool):
             action = critic.action_dist(state, rationality).sample()
             state_dist = critic.state_dist(action, rationality)
-            state2, state_dist2 = yield action, state_dist
-            if state_dist2 is None:
+            state2, obs = yield action, state_dist
+            if obs is None:
                 raise NotImplementedError  # TODO!
+            elif isinstance(obs, collections.Sequence):
+                raise NotImplementedError  # TODO!
+            else:
+                state_dist2 = obs
+
             rationality = replan(rationality, critic, state_dist, state_dist2)
             state = state2
 
