@@ -92,11 +92,6 @@ class Actor:
     def improvise(self) -&gt; ImprovProtocol:
         &#34;&#34;&#34;Improviser for game graph.
 
-        Args:
-          - game: GameGraph for game to play.
-          - psat: Min worst case winning probability of improviser.
-          - entropy: Min worst case entropy of improviser.
-
         Yields:
           Node to transition to and conjectured next player 1 state
           distribution.
@@ -137,6 +132,7 @@ def solve(game: GameGraph,
       - game: GameGraph for game to play.
       - psat: Min worst case winning probability of improviser.
       - entropy: Min worst case entropy of improviser.
+      - critic: Critic instance to use for synthesis.
 
     Returns:
       Actor factory for improvisation co-routines.
@@ -181,6 +177,7 @@ __all__ = [&#39;solve&#39;, &#39;Actor&#39;, &#39;ImprovProtocol&#39;]</code></p
 <li>game: GameGraph for game to play.</li>
 <li>psat: Min worst case winning probability of improviser.</li>
 <li>entropy: Min worst case entropy of improviser.</li>
+<li>critic: Critic instance to use for synthesis.</li>
 </ul>
 <h2 id="returns">Returns</h2>
 <p>Actor factory for improvisation co-routines.</p></div>
@@ -198,6 +195,7 @@ __all__ = [&#39;solve&#39;, &#39;Actor&#39;, &#39;ImprovProtocol&#39;]</code></p
       - game: GameGraph for game to play.
       - psat: Min worst case winning probability of improviser.
       - entropy: Min worst case entropy of improviser.
+      - critic: Critic instance to use for synthesis.
 
     Returns:
       Actor factory for improvisation co-routines.
@@ -246,11 +244,6 @@ __all__ = [&#39;solve&#39;, &#39;Actor&#39;, &#39;ImprovProtocol&#39;]</code></p
 
     def improvise(self) -&gt; ImprovProtocol:
         &#34;&#34;&#34;Improviser for game graph.
-
-        Args:
-          - game: GameGraph for game to play.
-          - psat: Min worst case winning probability of improviser.
-          - entropy: Min worst case entropy of improviser.
 
         Yields:
           Node to transition to and conjectured next player 1 state
@@ -303,12 +296,6 @@ __all__ = [&#39;solve&#39;, &#39;Actor&#39;, &#39;ImprovProtocol&#39;]</code></p
 </code></dt>
 <dd>
 <div class="desc"><p>Improviser for game graph.</p>
-<h2 id="args">Args</h2>
-<ul>
-<li>game: GameGraph for game to play.</li>
-<li>psat: Min worst case winning probability of improviser.</li>
-<li>entropy: Min worst case entropy of improviser.</li>
-</ul>
 <h2 id="yields">Yields</h2>
 <p>Node to transition to and conjectured next player 1 state
 distribution.</p>
@@ -322,11 +309,6 @@ distribution.</p>
 </summary>
 <pre><code class="python">def improvise(self) -&gt; ImprovProtocol:
     &#34;&#34;&#34;Improviser for game graph.
-
-    Args:
-      - game: GameGraph for game to play.
-      - psat: Min worst case winning probability of improviser.
-      - entropy: Min worst case entropy of improviser.
 
     Yields:
       Node to transition to and conjectured next player 1 state
