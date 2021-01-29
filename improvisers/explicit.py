@@ -30,8 +30,8 @@ class ExplicitGameGraph:
     def label(self, node: Node) -> NodeKinds:
         return self.graph[node][0]
 
-    def actions(self, start: Node) -> Set[Action]:
-        return lift_actions(self.graph[start][1])
+    def actions(self, node: Node) -> Set[Action]:
+        return lift_actions(self.graph[node][1])
 
     def nodes(self) -> Iterable[Node]:
         yield from self.graph
