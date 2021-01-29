@@ -40,6 +40,20 @@ class GameGraph(Protocol):
         ...
 
 
+def dfs_nodes(game_graph: GameGraph) -> Iterable[Node]:
+    stack, visited = [game_graph.root], set()
+    while stack:
+        node = stack.pop()
+        if node in visited:
+            continue
+
+        visited.add(node)
+
+        for a in game_graph.actions(node):
+            yield a.node
+            stack.append(a.node)
+
+
 def validate_game_graph(game_graph: GameGraph) -> None:
     """Validates preconditions on game graph.
 
@@ -62,5 +76,6 @@ def validate_game_graph(game_graph: GameGraph) -> None:
 
 
 __all__ = [
-    'GameGraph', 'validate_game_graph', 'Action', 'Node', 'NodeKinds'
+    'GameGraph', 'Action', 'Node', 'NodeKinds',
+    'dfs_nodes', 'validate_game_graph',
 ]

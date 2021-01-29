@@ -6,7 +6,8 @@ from typing import cast, Callable, Optional, Set, Tuple, Iterable
 
 import attr
 
-from improvisers.game_graph import Action, Node, NodeKinds, validate_game_graph
+from improvisers.game_graph import Action, Node, NodeKinds
+from improvisers.game_graph import dfs_nodes, validate_game_graph
 
 
 TimedNode = Tuple[int, Node]
@@ -24,12 +25,13 @@ class ImplicitGameGraph:
     """
     _root: Node
     _actions: Callable[[Node], Set[Action]]
-    _nodes: Callable[[], Iterable[Node]]
     _label: Callable[[Node], NodeKinds]
     horizon: Optional[int] = None
+    validate: bool = True
 
     def __attrs_post_init__(self) -> None:
-        validate_game_graph(self)
+        if self.validate:
+            validate_game_graph(self)
 
     @property
     def root(self) -> TimedNode:
@@ -51,8 +53,8 @@ class ImplicitGameGraph:
         actions = self._actions(node)
         return {attr.evolve(a, node=(time + 1, a.node)) for a in actions}
 
-    def nodes(self) -> Iterable[TimedNode]:
-        pass
+    def nodes(self) -> Iterable[Node]:
+        yield from dfs_nodes(self)
 
 
 __all__ = ['ImplicitGameGraph']
