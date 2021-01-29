@@ -63,11 +63,6 @@ class Actor:
     def improvise(self) -> ImprovProtocol:
         """Improviser for game graph.
 
-        Args:
-          - game: GameGraph for game to play.
-          - psat: Min worst case winning probability of improviser.
-          - entropy: Min worst case entropy of improviser.
-
         Yields:
           Node to transition to and conjectured next player 1 state
           distribution.
@@ -108,6 +103,7 @@ def solve(game: GameGraph,
       - game: GameGraph for game to play.
       - psat: Min worst case winning probability of improviser.
       - entropy: Min worst case entropy of improviser.
+      - critic: Critic instance to use for synthesis.
 
     Returns:
       Actor factory for improvisation co-routines.
