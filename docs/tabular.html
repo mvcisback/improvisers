@@ -163,6 +163,7 @@ class TabularCritic:
 
     def min_psat_action(
             self, node: Node, rationality: float) -&gt; Tuple[Action, float]:
+        &#34;&#34;&#34;Return action which minimizes psat of rationality policy.&#34;&#34;&#34;
         assert self.game.label(node) == &#39;p2&#39;
 
         # Compute entropy of planned action.
@@ -402,6 +403,7 @@ __all__ = [&#39;TabularCritic&#39;]</code></pre>
 
     def min_psat_action(
             self, node: Node, rationality: float) -&gt; Tuple[Action, float]:
+        &#34;&#34;&#34;Return action which minimizes psat of rationality policy.&#34;&#34;&#34;
         assert self.game.label(node) == &#39;p2&#39;
 
         # Compute entropy of planned action.
@@ -791,13 +793,14 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <span>def <span class="ident">min_psat_action</span></span>(<span>self, node: Node, rationality: float) ‑> Tuple[<a title="improvisers.game_graph.Action" href="game_graph.html#improvisers.game_graph.Action">Action</a>, float]</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return action which minimizes psat of rationality policy.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def min_psat_action(
         self, node: Node, rationality: float) -&gt; Tuple[Action, float]:
+    &#34;&#34;&#34;Return action which minimizes psat of rationality policy.&#34;&#34;&#34;
     assert self.game.label(node) == &#39;p2&#39;
 
     # Compute entropy of planned action.

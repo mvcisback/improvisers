@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.9.2" />
 <title>improvisers.critic API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Critic Protocol for GameGraph" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,11 +22,14 @@
 <h1 class="title">Module <code>improvisers.critic</code></h1>
 </header>
 <section id="section-intro">
+<p>Critic Protocol for GameGraph</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from __future__ import annotations
+<pre><code class="python">&#34;&#34;&#34;Critic Protocol for GameGraph&#34;&#34;&#34;
+
+from __future__ import annotations
 
 from typing import Iterable, Protocol, Optional
 
@@ -34,22 +37,29 @@ from improvisers.game_graph import Node, GameGraph
 
 
 class Distribution(Protocol):
+    &#34;&#34;&#34;Protocol for critic aware distribution over nodes.&#34;&#34;&#34;
     def sample(self, seed: Optional[int] = None) -&gt; Node:
+        &#34;&#34;&#34;Returns a sampled node from distribution.&#34;&#34;&#34;
         ...
 
     def prob(self, node: Node) -&gt; float:
+        &#34;&#34;&#34;Returns probability of given node.&#34;&#34;&#34;
         ...
 
     def support(self) -&gt; Iterable[Node]:
+        &#34;&#34;&#34;Iterate over nodes with non-zero probability.&#34;&#34;&#34;
         ...
 
     def lsat(self, critic: Critic, rationality: float) -&gt; float:
+        &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
         ...
 
     def psat(self, critic: Critic, rationality: float) -&gt; float:
+        &#34;&#34;&#34;Return probability of p1 winning given under this distribution.&#34;&#34;&#34;
         ...
 
     def entropy(self, critic: Critic, rationality: float) -&gt; float:
+        &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
         ...
 
 
@@ -320,52 +330,35 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for protocol classes.</p>
-<p>Protocol classes are defined as::</p>
-<pre><code>class Proto(Protocol):
-    def meth(self) -&gt; int:
-        ...
-</code></pre>
-<p>Such classes are primarily used with static type checkers that recognize
-structural subtyping (static duck-typing), for example::</p>
-<pre><code>class C:
-    def meth(self) -&gt; int:
-        return 0
-
-def func(x: Proto) -&gt; int:
-    return x.meth()
-
-func(C())  # Passes static type check
-</code></pre>
-<p>See PEP 544 for details. Protocol classes decorated with
-@typing.runtime_checkable act as simple-minded runtime protocols that check
-only the presence of given attributes, ignoring their type signatures.
-Protocol classes can be generic, they are defined as::</p>
-<pre><code>class GenProto(Protocol[T]):
-    def meth(self) -&gt; T:
-        ...
-</code></pre></div>
+<div class="desc"><p>Protocol for critic aware distribution over nodes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Distribution(Protocol):
+    &#34;&#34;&#34;Protocol for critic aware distribution over nodes.&#34;&#34;&#34;
     def sample(self, seed: Optional[int] = None) -&gt; Node:
+        &#34;&#34;&#34;Returns a sampled node from distribution.&#34;&#34;&#34;
         ...
 
     def prob(self, node: Node) -&gt; float:
+        &#34;&#34;&#34;Returns probability of given node.&#34;&#34;&#34;
         ...
 
     def support(self) -&gt; Iterable[Node]:
+        &#34;&#34;&#34;Iterate over nodes with non-zero probability.&#34;&#34;&#34;
         ...
 
     def lsat(self, critic: Critic, rationality: float) -&gt; float:
+        &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
         ...
 
     def psat(self, critic: Critic, rationality: float) -&gt; float:
+        &#34;&#34;&#34;Return probability of p1 winning given under this distribution.&#34;&#34;&#34;
         ...
 
     def entropy(self, critic: Critic, rationality: float) -&gt; float:
+        &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
         ...</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -379,12 +372,13 @@ Protocol classes can be generic, they are defined as::</p>
 <span>def <span class="ident">entropy</span></span>(<span>self, critic: <a title="improvisers.critic.Critic" href="#improvisers.critic.Critic">Critic</a>, rationality: float) ‑> float</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return log probability of p1 winning under this distribution.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def entropy(self, critic: Critic, rationality: float) -&gt; float:
+    &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
@@ -392,12 +386,13 @@ Protocol classes can be generic, they are defined as::</p>
 <span>def <span class="ident">lsat</span></span>(<span>self, critic: <a title="improvisers.critic.Critic" href="#improvisers.critic.Critic">Critic</a>, rationality: float) ‑> float</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return log probability of p1 winning under this distribution.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def lsat(self, critic: Critic, rationality: float) -&gt; float:
+    &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
@@ -405,12 +400,13 @@ Protocol classes can be generic, they are defined as::</p>
 <span>def <span class="ident">prob</span></span>(<span>self, node: Node) ‑> float</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns probability of given node.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def prob(self, node: Node) -&gt; float:
+    &#34;&#34;&#34;Returns probability of given node.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
@@ -418,12 +414,13 @@ Protocol classes can be generic, they are defined as::</p>
 <span>def <span class="ident">psat</span></span>(<span>self, critic: <a title="improvisers.critic.Critic" href="#improvisers.critic.Critic">Critic</a>, rationality: float) ‑> float</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return probability of p1 winning given under this distribution.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def psat(self, critic: Critic, rationality: float) -&gt; float:
+    &#34;&#34;&#34;Return probability of p1 winning given under this distribution.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
@@ -431,12 +428,13 @@ Protocol classes can be generic, they are defined as::</p>
 <span>def <span class="ident">sample</span></span>(<span>self, seed: Optional[int] = None) ‑> Hashable</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns a sampled node from distribution.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sample(self, seed: Optional[int] = None) -&gt; Node:
+    &#34;&#34;&#34;Returns a sampled node from distribution.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
@@ -444,12 +442,13 @@ Protocol classes can be generic, they are defined as::</p>
 <span>def <span class="ident">support</span></span>(<span>self) ‑> Iterable[Hashable]</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Iterate over nodes with non-zero probability.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def support(self) -&gt; Iterable[Node]:
+    &#34;&#34;&#34;Iterate over nodes with non-zero probability.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>

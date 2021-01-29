@@ -26,8 +26,9 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from typing import Generator, Optional, Tuple
+<pre><code class="python">from typing import Generator, Optional, Tuple, Union, Sequence
 
+import attr
 from scipy.optimize import brentq
 
 from improvisers.game_graph import Node, GameGraph
@@ -36,12 +37,17 @@ from improvisers.tabular import TabularCritic
 
 
 Dist = Distribution
+Observation = Union[
+    Dist,            # Provide next state distribution.
+    Sequence[Node],  # Observe player 2 nodes. Worst case counter-factuals.
+    None,            # Assume worst case dist compatible with next p1 state.
+]
 
 
-Improviser = Generator[
-    Tuple[Node, Dist],     # Yield p1 action and expected state distribution.
-    Tuple[Node, Dist],     # Observe p1 state and actual state distribution.
-    bool                   # Return whether or not p1 won the game.
+ImprovProtocol = Generator[
+    Tuple[Node, Dist],         # Yield p1 action and expected next state dist.
+    Tuple[Node, Observation],  # Observe p1 state and observation.
+    bool                       # Return whether or not p1 won the game.
 ]
 
 
@@ -72,10 +78,50 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -&gt; float:
     return float(&#39;inf&#39;)  # Effectively infinite.
 
 
-def policy(game: GameGraph,
-           psat: float = 0,
-           entropy: float = 0,
-           critic: Optional[Critic] = None) -&gt; Improviser:
+@attr.s(auto_attribs=True, frozen=True)
+class Actor:
+    &#34;&#34;&#34;Factory for improvisation co-routine.&#34;&#34;&#34;
+    game: GameGraph
+    critic: Critic
+    rationality: float
+
+    def improvise(self) -&gt; ImprovProtocol:
+        &#34;&#34;&#34;Improviser for game graph.
+
+        Args:
+          - game: GameGraph for game to play.
+          - psat: Min worst case winning probability of improviser.
+          - entropy: Min worst case entropy of improviser.
+
+        Yields:
+          Node to transition to and conjectured next player 1 state
+          distribution.
+
+        Sends:
+          Current player 1 state and distribution the state was drawn from.
+
+        Returns:
+          Whether or not player 1 won the game.
+        &#34;&#34;&#34;
+        game, critic, rationality = self.game, self.critic, self.rationality
+
+        state = game.root
+        while not isinstance(game.label(state), bool):
+            action = critic.action_dist(state, rationality).sample()
+            state_dist = critic.state_dist(action, rationality)
+            state2, state_dist2 = yield action, state_dist
+            if state_dist2 is None:
+                raise NotImplementedError  # TODO!
+            rationality = replan(rationality, critic, state_dist, state_dist2)
+            state = state2
+
+        return bool(game.label(state))
+
+
+def solve(game: GameGraph,
+          psat: float = 0,
+          entropy: float = 0,
+          critic: Optional[Critic] = None) -&gt; Actor:
     &#34;&#34;&#34;Find player 1 improviser for game.
 
     Args:
@@ -83,15 +129,10 @@ def policy(game: GameGraph,
       - psat: Min worst case winning probability of improviser.
       - entropy: Min worst case entropy of improviser.
 
-    Yields:
-      Node to transition to and conjectured next player 1 state distribution.
-
-    Sends:
-      Current player 1 state and distribution the state was drawn from.
-
     Returns:
-      Whether or not player 1 won the game.
+      Actor factory for improvisation co-routines.
     &#34;&#34;&#34;
+
     state = game.root
 
     if critic is None:
@@ -108,17 +149,10 @@ def policy(game: GameGraph,
         raise ValueError(
             &#34;No improviser exists. Entropy constraint unreachable.&#34;
         )
-
-    while not isinstance(game.label(state), bool):
-        action = critic.action_dist(state, rationality).sample()
-        state_dist = critic.state_dist(action, rationality)
-        state, state_dist2 = yield action, state_dist
-        rationality = replan(rationality, critic, state_dist, state_dist2)
-
-    return bool(game.label(state))
+    return Actor(game, critic, rationality)
 
 
-__all__ = [&#39;policy&#39;, &#39;Improviser&#39;]</code></pre>
+__all__ = [&#39;solve&#39;, &#39;Actor&#39;, &#39;ImprovProtocol&#39;]</code></pre>
 </details>
 </section>
 <section>
@@ -128,8 +162,8 @@ __all__ = [&#39;policy&#39;, &#39;Improviser&#39;]</code></pre>
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="improvisers.policy.policy"><code class="name flex">
-<span>def <span class="ident">policy</span></span>(<span>game: <a title="improvisers.game_graph.GameGraph" href="game_graph.html#improvisers.game_graph.GameGraph">GameGraph</a>, psat: float = 0, entropy: float = 0, critic: Union[<a title="improvisers.critic.Critic" href="critic.html#improvisers.critic.Critic">Critic</a>, NoneType] = None) ‑> Generator[Tuple[Hashable, <a title="improvisers.critic.Distribution" href="critic.html#improvisers.critic.Distribution">Distribution</a>], Tuple[Hashable, <a title="improvisers.critic.Distribution" href="critic.html#improvisers.critic.Distribution">Distribution</a>], bool]</span>
+<dt id="improvisers.policy.solve"><code class="name flex">
+<span>def <span class="ident">solve</span></span>(<span>game: <a title="improvisers.game_graph.GameGraph" href="game_graph.html#improvisers.game_graph.GameGraph">GameGraph</a>, psat: float = 0, entropy: float = 0, critic: Union[<a title="improvisers.critic.Critic" href="critic.html#improvisers.critic.Critic">Critic</a>, NoneType] = None) ‑> <a title="improvisers.policy.Actor" href="#improvisers.policy.Actor">Actor</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Find player 1 improviser for game.</p>
@@ -139,20 +173,16 @@ __all__ = [&#39;policy&#39;, &#39;Improviser&#39;]</code></pre>
 <li>psat: Min worst case winning probability of improviser.</li>
 <li>entropy: Min worst case entropy of improviser.</li>
 </ul>
-<h2 id="yields">Yields</h2>
-<p>Node to transition to and conjectured next player 1 state distribution.</p>
-<h2 id="sends">Sends</h2>
-<p>Current player 1 state and distribution the state was drawn from.</p>
 <h2 id="returns">Returns</h2>
-<p>Whether or not player 1 won the game.</p></div>
+<p>Actor factory for improvisation co-routines.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def policy(game: GameGraph,
-           psat: float = 0,
-           entropy: float = 0,
-           critic: Optional[Critic] = None) -&gt; Improviser:
+<pre><code class="python">def solve(game: GameGraph,
+          psat: float = 0,
+          entropy: float = 0,
+          critic: Optional[Critic] = None) -&gt; Actor:
     &#34;&#34;&#34;Find player 1 improviser for game.
 
     Args:
@@ -160,15 +190,10 @@ __all__ = [&#39;policy&#39;, &#39;Improviser&#39;]</code></pre>
       - psat: Min worst case winning probability of improviser.
       - entropy: Min worst case entropy of improviser.
 
-    Yields:
-      Node to transition to and conjectured next player 1 state distribution.
-
-    Sends:
-      Current player 1 state and distribution the state was drawn from.
-
     Returns:
-      Whether or not player 1 won the game.
+      Actor factory for improvisation co-routines.
     &#34;&#34;&#34;
+
     state = game.root
 
     if critic is None:
@@ -185,19 +210,138 @@ __all__ = [&#39;policy&#39;, &#39;Improviser&#39;]</code></pre>
         raise ValueError(
             &#34;No improviser exists. Entropy constraint unreachable.&#34;
         )
-
-    while not isinstance(game.label(state), bool):
-        action = critic.action_dist(state, rationality).sample()
-        state_dist = critic.state_dist(action, rationality)
-        state, state_dist2 = yield action, state_dist
-        rationality = replan(rationality, critic, state_dist, state_dist2)
-
-    return bool(game.label(state))</code></pre>
+    return Actor(game, critic, rationality)</code></pre>
 </details>
 </dd>
 </dl>
 </section>
 <section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="improvisers.policy.Actor"><code class="flex name class">
+<span>class <span class="ident">Actor</span></span>
+<span>(</span><span>game: <a title="improvisers.game_graph.GameGraph" href="game_graph.html#improvisers.game_graph.GameGraph">GameGraph</a>, critic: <a title="improvisers.critic.Critic" href="critic.html#improvisers.critic.Critic">Critic</a>, rationality: float)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Factory for improvisation co-routine.</p>
+<p>Method generated by attrs for class Actor.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Actor:
+    &#34;&#34;&#34;Factory for improvisation co-routine.&#34;&#34;&#34;
+    game: GameGraph
+    critic: Critic
+    rationality: float
+
+    def improvise(self) -&gt; ImprovProtocol:
+        &#34;&#34;&#34;Improviser for game graph.
+
+        Args:
+          - game: GameGraph for game to play.
+          - psat: Min worst case winning probability of improviser.
+          - entropy: Min worst case entropy of improviser.
+
+        Yields:
+          Node to transition to and conjectured next player 1 state
+          distribution.
+
+        Sends:
+          Current player 1 state and distribution the state was drawn from.
+
+        Returns:
+          Whether or not player 1 won the game.
+        &#34;&#34;&#34;
+        game, critic, rationality = self.game, self.critic, self.rationality
+
+        state = game.root
+        while not isinstance(game.label(state), bool):
+            action = critic.action_dist(state, rationality).sample()
+            state_dist = critic.state_dist(action, rationality)
+            state2, state_dist2 = yield action, state_dist
+            if state_dist2 is None:
+                raise NotImplementedError  # TODO!
+            rationality = replan(rationality, critic, state_dist, state_dist2)
+            state = state2
+
+        return bool(game.label(state))</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="improvisers.policy.Actor.critic"><code class="name">var <span class="ident">critic</span> : <a title="improvisers.critic.Critic" href="critic.html#improvisers.critic.Critic">Critic</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="improvisers.policy.Actor.game"><code class="name">var <span class="ident">game</span> : <a title="improvisers.game_graph.GameGraph" href="game_graph.html#improvisers.game_graph.GameGraph">GameGraph</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="improvisers.policy.Actor.rationality"><code class="name">var <span class="ident">rationality</span> : float</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="improvisers.policy.Actor.improvise"><code class="name flex">
+<span>def <span class="ident">improvise</span></span>(<span>self) ‑> Generator[Tuple[Hashable, <a title="improvisers.critic.Distribution" href="critic.html#improvisers.critic.Distribution">Distribution</a>], Tuple[Hashable, Union[<a title="improvisers.critic.Distribution" href="critic.html#improvisers.critic.Distribution">Distribution</a>, Sequence[Hashable], NoneType]], bool]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Improviser for game graph.</p>
+<h2 id="args">Args</h2>
+<ul>
+<li>game: GameGraph for game to play.</li>
+<li>psat: Min worst case winning probability of improviser.</li>
+<li>entropy: Min worst case entropy of improviser.</li>
+</ul>
+<h2 id="yields">Yields</h2>
+<p>Node to transition to and conjectured next player 1 state
+distribution.</p>
+<h2 id="sends">Sends</h2>
+<p>Current player 1 state and distribution the state was drawn from.</p>
+<h2 id="returns">Returns</h2>
+<p>Whether or not player 1 won the game.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def improvise(self) -&gt; ImprovProtocol:
+    &#34;&#34;&#34;Improviser for game graph.
+
+    Args:
+      - game: GameGraph for game to play.
+      - psat: Min worst case winning probability of improviser.
+      - entropy: Min worst case entropy of improviser.
+
+    Yields:
+      Node to transition to and conjectured next player 1 state
+      distribution.
+
+    Sends:
+      Current player 1 state and distribution the state was drawn from.
+
+    Returns:
+      Whether or not player 1 won the game.
+    &#34;&#34;&#34;
+    game, critic, rationality = self.game, self.critic, self.rationality
+
+    state = game.root
+    while not isinstance(game.label(state), bool):
+        action = critic.action_dist(state, rationality).sample()
+        state_dist = critic.state_dist(action, rationality)
+        state2, state_dist2 = yield action, state_dist
+        if state_dist2 is None:
+            raise NotImplementedError  # TODO!
+        rationality = replan(rationality, critic, state_dist, state_dist2)
+        state = state2
+
+    return bool(game.label(state))</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -213,7 +357,20 @@ __all__ = [&#39;policy&#39;, &#39;Improviser&#39;]</code></pre>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="improvisers.policy.policy" href="#improvisers.policy.policy">policy</a></code></li>
+<li><code><a title="improvisers.policy.solve" href="#improvisers.policy.solve">solve</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="improvisers.policy.Actor" href="#improvisers.policy.Actor">Actor</a></code></h4>
+<ul class="">
+<li><code><a title="improvisers.policy.Actor.critic" href="#improvisers.policy.Actor.critic">critic</a></code></li>
+<li><code><a title="improvisers.policy.Actor.game" href="#improvisers.policy.Actor.game">game</a></code></li>
+<li><code><a title="improvisers.policy.Actor.improvise" href="#improvisers.policy.Actor.improvise">improvise</a></code></li>
+<li><code><a title="improvisers.policy.Actor.rationality" href="#improvisers.policy.Actor.rationality">rationality</a></code></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
