@@ -1,3 +1,5 @@
+"""Module for synthesizing policies from ERCI instances."""
+
 import collections
 from typing import Generator, Optional, Tuple, Union, Sequence
 
