@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "improvisers"
-version = "0.1.0"
+version = "0.1.1"
 description = "Library for modeling improvisers in stochastic games."
 authors = ["Marcell Vazquez-Chanlatte <mvc@linux.com>"]
 
