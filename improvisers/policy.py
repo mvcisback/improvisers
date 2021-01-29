@@ -1,5 +1,6 @@
-from typing import Generator, Optional, Tuple
+from typing import Generator, Optional, Tuple, Union, Sequence
 
+import attr
 from scipy.optimize import brentq
 
 from improvisers.game_graph import Node, GameGraph
@@ -8,12 +9,17 @@ from improvisers.tabular import TabularCritic
 
 
 Dist = Distribution
+Observation = Union[
+    Dist,            # Provide next state distribution.
+    Sequence[Node],  # Observe player 2 nodes. Worst case counter-factuals.
+    None,            # Assume worst case dist compatible with next p1 state.
+]
 
 
-Improviser = Generator[
-    Tuple[Node, Dist],     # Yield p1 action and expected state distribution.
-    Tuple[Node, Dist],     # Observe p1 state and actual state distribution.
-    bool                   # Return whether or not p1 won the game.
+ImprovProtocol = Generator[
+    Tuple[Node, Dist],         # Yield p1 action and expected next state dist.
+    Tuple[Node, Observation],  # Observe p1 state and observation.
+    bool                       # Return whether or not p1 won the game.
 ]
 
 
@@ -44,10 +50,50 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
     return float('inf')  # Effectively infinite.
 
 
-def policy(game: GameGraph,
-           psat: float = 0,
-           entropy: float = 0,
-           critic: Optional[Critic] = None) -> Improviser:
+@attr.s(auto_attribs=True, frozen=True)
+class Actor:
+    """Factory for improvisation co-routine."""
+    game: GameGraph
+    critic: Critic
+    rationality: float
+
+    def improvise(self) -> ImprovProtocol:
+        """Improviser for game graph.
+
+        Args:
+          - game: GameGraph for game to play.
+          - psat: Min worst case winning probability of improviser.
+          - entropy: Min worst case entropy of improviser.
+
+        Yields:
+          Node to transition to and conjectured next player 1 state
+          distribution.
+
+        Sends:
+          Current player 1 state and distribution the state was drawn from.
+
+        Returns:
+          Whether or not player 1 won the game.
+        """
+        game, critic, rationality = self.game, self.critic, self.rationality
+
+        state = game.root
+        while not isinstance(game.label(state), bool):
+            action = critic.action_dist(state, rationality).sample()
+            state_dist = critic.state_dist(action, rationality)
+            state2, state_dist2 = yield action, state_dist
+            if state_dist2 is None:
+                raise NotImplementedError  # TODO!
+            rationality = replan(rationality, critic, state_dist, state_dist2)
+            state = state2
+
+        return bool(game.label(state))
+
+
+def solve(game: GameGraph,
+          psat: float = 0,
+          entropy: float = 0,
+          critic: Optional[Critic] = None) -> Actor:
     """Find player 1 improviser for game.
 
     Args:
@@ -55,15 +101,10 @@ def policy(game: GameGraph,
       - psat: Min worst case winning probability of improviser.
       - entropy: Min worst case entropy of improviser.
 
-    Yields:
-      Node to transition to and conjectured next player 1 state distribution.
-
-    Sends:
-      Current player 1 state and distribution the state was drawn from.
-
     Returns:
-      Whether or not player 1 won the game.
+      Actor factory for improvisation co-routines.
     """
+
     state = game.root
 
     if critic is None:
@@ -80,14 +121,7 @@ def policy(game: GameGraph,
         raise ValueError(
             "No improviser exists. Entropy constraint unreachable."
         )
-
-    while not isinstance(game.label(state), bool):
-        action = critic.action_dist(state, rationality).sample()
-        state_dist = critic.state_dist(action, rationality)
-        state, state_dist2 = yield action, state_dist
-        rationality = replan(rationality, critic, state_dist, state_dist2)
-
-    return bool(game.label(state))
+    return Actor(game, critic, rationality)
 
 
-__all__ = ['policy', 'Improviser']
+__all__ = ['solve', 'Actor', 'ImprovProtocol']

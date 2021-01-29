@@ -20,7 +20,8 @@ def test_mdp_policy_smoke():
             7: ('p1', {5, 6}),
         }
     )
-    policy = RCI.policy(game_graph, psat=0.8)
+    actor = RCI.solve(game_graph, psat=0.8)
+    policy = actor.improvise()
 
     random.seed(1)
     observation = None
@@ -47,14 +48,13 @@ def test_stochastic_game_policy_smoke():
     )
 
     with pytest.raises(ValueError):   # Unachievable psat, achievable entropy.
-        policy = RCI.policy(game_graph, entropy=0, psat=1/3 + 0.1)
-        next(policy)
+        RCI.solve(game_graph, entropy=0, psat=1/3 + 0.1)
 
     with pytest.raises(ValueError):   # Achievable psat, unachievable entropy.
-        policy = RCI.policy(game_graph, entropy=1.5, psat=1/3)
-        next(policy)
+        RCI.solve(game_graph, entropy=1.5, psat=1/3)
 
-    policy = RCI.policy(game_graph, psat=1/3)
+    actor = RCI.solve(game_graph, psat=1/3)
+    policy = actor.improvise()
     observation = None
     while True:
         try:

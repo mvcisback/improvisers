@@ -42,5 +42,6 @@ game_graph = ExplicitGameGraph(
     }
 )
 
-policy = policy(game_graph, psat=1/3)
+actor = solve(game_graph, psat=1/3)
+policy = actor.improvise()
 ```
