@@ -59,8 +59,8 @@ class ExplicitGameGraph:
     def label(self, node: Node) -&gt; NodeKinds:
         return self.graph[node][0]
 
-    def actions(self, start: Node) -&gt; Set[Action]:
-        return lift_actions(self.graph[start][1])
+    def actions(self, node: Node) -&gt; Set[Action]:
+        return lift_actions(self.graph[node][1])
 
     def nodes(self) -&gt; Iterable[Node]:
         yield from self.graph
@@ -98,8 +98,8 @@ __all__ = [&#39;ExplicitGameGraph&#39;]</code></pre>
     def label(self, node: Node) -&gt; NodeKinds:
         return self.graph[node][0]
 
-    def actions(self, start: Node) -&gt; Set[Action]:
-        return lift_actions(self.graph[start][1])
+    def actions(self, node: Node) -&gt; Set[Action]:
+        return lift_actions(self.graph[node][1])
 
     def nodes(self) -&gt; Iterable[Node]:
         yield from self.graph</code></pre>
@@ -118,7 +118,7 @@ __all__ = [&#39;ExplicitGameGraph&#39;]</code></pre>
 <h3>Methods</h3>
 <dl>
 <dt id="improvisers.explicit.ExplicitGameGraph.actions"><code class="name flex">
-<span>def <span class="ident">actions</span></span>(<span>self, start: Node) ‑> Set[<a title="improvisers.game_graph.Action" href="game_graph.html#improvisers.game_graph.Action">Action</a>]</span>
+<span>def <span class="ident">actions</span></span>(<span>self, node: Node) ‑> Set[<a title="improvisers.game_graph.Action" href="game_graph.html#improvisers.game_graph.Action">Action</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -126,8 +126,8 @@ __all__ = [&#39;ExplicitGameGraph&#39;]</code></pre>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def actions(self, start: Node) -&gt; Set[Action]:
-    return lift_actions(self.graph[start][1])</code></pre>
+<pre><code class="python">def actions(self, node: Node) -&gt; Set[Action]:
+    return lift_actions(self.graph[node][1])</code></pre>
 </details>
 </dd>
 <dt id="improvisers.explicit.ExplicitGameGraph.label"><code class="name flex">

@@ -69,6 +69,20 @@ class GameGraph(Protocol):
         ...
 
 
+def dfs_nodes(game_graph: GameGraph) -&gt; Iterable[Node]:
+    stack, visited = [game_graph.root], set()
+    while stack:
+        node = stack.pop()
+        if node in visited:
+            continue
+
+        visited.add(node)
+
+        for a in game_graph.actions(node):
+            yield a.node
+            stack.append(a.node)
+
+
 def validate_game_graph(game_graph: GameGraph) -&gt; None:
     &#34;&#34;&#34;Validates preconditions on game graph.
 
@@ -91,7 +105,8 @@ def validate_game_graph(game_graph: GameGraph) -&gt; None:
 
 
 __all__ = [
-    &#39;GameGraph&#39;, &#39;validate_game_graph&#39;, &#39;Action&#39;, &#39;Node&#39;, &#39;NodeKinds&#39;
+    &#39;GameGraph&#39;, &#39;Action&#39;, &#39;Node&#39;, &#39;NodeKinds&#39;,
+    &#39;dfs_nodes&#39;, &#39;validate_game_graph&#39;,
 ]</code></pre>
 </details>
 </section>
@@ -102,6 +117,29 @@ __all__ = [
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="improvisers.game_graph.dfs_nodes"><code class="name flex">
+<span>def <span class="ident">dfs_nodes</span></span>(<span>game_graph: <a title="improvisers.game_graph.GameGraph" href="#improvisers.game_graph.GameGraph">GameGraph</a>) ‑> Iterable[Hashable]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dfs_nodes(game_graph: GameGraph) -&gt; Iterable[Node]:
+    stack, visited = [game_graph.root], set()
+    while stack:
+        node = stack.pop()
+        if node in visited:
+            continue
+
+        visited.add(node)
+
+        for a in game_graph.actions(node):
+            yield a.node
+            stack.append(a.node)</code></pre>
+</details>
+</dd>
 <dt id="improvisers.game_graph.validate_game_graph"><code class="name flex">
 <span>def <span class="ident">validate_game_graph</span></span>(<span>game_graph: <a title="improvisers.game_graph.GameGraph" href="#improvisers.game_graph.GameGraph">GameGraph</a>) ‑> NoneType</span>
 </code></dt>
@@ -298,6 +336,7 @@ def root(self) -&gt; Node:
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="improvisers.game_graph.dfs_nodes" href="#improvisers.game_graph.dfs_nodes">dfs_nodes</a></code></li>
 <li><code><a title="improvisers.game_graph.validate_game_graph" href="#improvisers.game_graph.validate_game_graph">validate_game_graph</a></code></li>
 </ul>
 </li>
