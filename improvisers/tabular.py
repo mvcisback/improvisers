@@ -173,7 +173,7 @@ class TabularCritic:
         if label == 'p1':                        # Player 1 case.
             return logsumexp(values) if rationality < oo else max(values)
 
-        assert label == 'env'                    # Environment case.
+        # Environment case.
         dist = self.action_dist(node, rationality)
         probs = [dist.prob(n) for n in dist.support()]
         return np.average(values, weights=probs)
@@ -270,10 +270,7 @@ class TabularCritic:
 
         actions = self.game.actions(state)
 
-        if label == 'env':
-            return Dist({a.node: a.prob for a in actions})  # type: ignore
-        else:
-            assert label == 'p1'
+        if label == 'p1':
             vals = [self.value(a.node, rationality) for a in actions]
 
             if rationality < oo:
@@ -284,6 +281,7 @@ class TabularCritic:
             optimal = max(vals)
             support = [a for a, v in zip(actions, vals) if v == optimal]
             return Dist({a.node: 1 / len(support) for a in support})
+        return Dist({a.node: a.prob for a in actions})  # type: ignore
 
     def state_dist(self, action: Node, rationality: float) -> Distribution:
         stack = [(0.0, action, rationality)]

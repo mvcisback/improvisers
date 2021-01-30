@@ -2,15 +2,34 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Set, Tuple, Union, Iterable
+import random
+from typing import Dict, Literal, Iterable, Set, Tuple, Union, Optional
 
 import attr
 
 from improvisers.game_graph import Action, Node, NodeKinds, validate_game_graph
 
 
-ConcreteActions = Union[Set[Node], Mapping[Node, float]]
-Graph = Mapping[Node, Tuple[NodeKinds, ConcreteActions]]
+NodeKinds2 = Union[Literal['p1'], Literal['p2'], Literal['env'], bool]
+ConcreteActions = Union[Set[Node], Dict[Node, float]]
+Graph = Dict[Node, Tuple[NodeKinds2, ConcreteActions]]
+
+
+@attr.s(frozen=True, auto_attribs=True, eq=False)
+class ExplicitDist:
+    data: Dict[Node, float] = attr.ib(factory=dict)
+
+    def sample(self, seed: Optional[int] = None) -> Node:
+        if seed is not None:
+            random.seed(seed)
+        return random.choices(*zip(*self.data.items()))[0]  # type: ignore
+
+    def prob(self, node: Node) -> float:
+        return self.data[node]
+
+    def support(self) -> Iterable[Node]:
+        return self.data.keys()
+
 
 
 def lift_actions(actions: ConcreteActions) -> Set[Action]:
@@ -28,7 +47,11 @@ class ExplicitGameGraph:
         validate_game_graph(self)
 
     def label(self, node: Node) -> NodeKinds:
-        return self.graph[node][0]
+        label, actions = self.graph[node]
+        if label == 'env':
+            assert isinstance(actions, dict)
+            return ExplicitDist(actions)
+        return label
 
     def actions(self, node: Node) -> Set[Action]:
         return lift_actions(self.graph[node][1])
@@ -37,4 +60,4 @@ class ExplicitGameGraph:
         yield from self.graph
 
 
-__all__ = ['ExplicitGameGraph']
+__all__ = ['ExplicitGameGraph', 'ExplicitDist']

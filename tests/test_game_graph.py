@@ -18,8 +18,10 @@ def test_game_graph_explicit_smoke():
 
     assert game_graph.label(1) == 'p1'
     assert game_graph.label(2) == 'p1'
-    assert game_graph.label(3) == 'env'
-    assert game_graph.label(5) == 'env'
+    assert isinstance(game_graph.label(3), RCI.ExplicitDist)
+    assert game_graph.label(3).data == {2: 0.3, 6: 0.7}
+    assert isinstance(game_graph.label(5), RCI.ExplicitDist)
+    assert game_graph.label(5).data == {4: 0.5, 6: 0.5}
     assert game_graph.label(4) is True
     assert game_graph.label(6) is False
 

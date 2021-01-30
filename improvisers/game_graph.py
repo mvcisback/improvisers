@@ -81,12 +81,9 @@ def validate_game_graph(game_graph: GameGraph) -> None:
         if isinstance(label, bool) == bool(actions):
             raise ValueError('Terminals <-> label is a reward!')
 
-        if (label == "env") and not all(a.is_stochastic for a in actions):
-            raise ValueError("Environment actions must by stochastic!")
-
 
 Node = Hashable
-NodeKinds = Union[Literal['p1'], Literal['p2'], Literal['env'], bool]
+NodeKinds = Union[Literal['p1'], Literal['p2'], Distribution, bool]
 
 
 __all__ = [
