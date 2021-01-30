@@ -28,13 +28,13 @@ def test_game_graph_explicit_smoke():
     assert game_graph.root == 1
 
 
-def test_game_graph_smoke():
+def test_game_graph_implicit_smoke():
     game_graph = RCI.ImplicitGameGraph(
         root=False,
         player=lambda _: 'p1',
         accepting=lambda i: i,
-        move=lambda n, c: bool(n ^ c),
-        moves=lambda _: [False, True],
+        transition=lambda n, c: bool(n ^ c),
+        actions=lambda _: [False, True],
         horizon=2,
     )
 

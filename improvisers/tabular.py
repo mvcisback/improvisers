@@ -9,7 +9,7 @@ import numpy as np
 from scipy.special import logsumexp, softmax
 from scipy.optimize import brentq
 
-from improvisers.game_graph import Action, GameGraph, Node
+from improvisers.game_graph import GameGraph, Node
 from improvisers.critic import Critic, Distribution, DistLike
 from improvisers.explicit import ExplicitDist as Dist
 
@@ -63,72 +63,70 @@ def cached_stat(func: NodeStatFunc) -> NodeStatFunc:
 class TabularCritic:
     game: GameGraph
     cache: Cache = attr.ib(factory=Cache)
-    _min_ent_actions: Dict[Node, List[Action]] = attr.ib(factory=dict)
+    _min_ent_moves: Dict[Node, List[Node]] = attr.ib(factory=dict)
 
-    def min_ent_actions(self, node: Node) -> List[Action]:
-        """Return actions which minimizes the *achievable* entropy."""
-        if node in self._min_ent_actions:
-            return self._min_ent_actions[node]
+    def min_ent_moves(self, node: Node) -> List[Node]:
+        """Return moves which minimizes the *achievable* entropy."""
+        if node in self._min_ent_moves:
+            return self._min_ent_moves[node]
 
-        actions, worst = [], oo
-        for a in self.game.actions(node):
-            entropy = self.entropy(a.node, 0)
+        moves, worst = [], oo
+        for node2 in self.game.moves(node):
+            entropy = self.entropy(node2, 0)
             if entropy < worst:
-                actions, worst = [a], entropy
+                moves, worst = [node2], entropy
             elif entropy == worst:
-                actions.append(a)
-        self._min_ent_actions[node] = actions
-        return actions
+                moves.append(node2)
+        self._min_ent_moves[node] = moves
+        return moves
 
-    def min_ent_action(self, node: Node, rationality: float) -> Action:
-        """Return action which minimizes the (*achievable* entropy, psat)."""
-        actions = self.min_ent_actions(node)
+    def min_ent_move(self, node: Node, rationality: float) -> Node:
+        """Return move which minimizes the (*achievable* entropy, psat)."""
+        moves = self.min_ent_moves(node)
 
         # Optimization. If all values are the same, the resulting
         # policy will assign same probability to transitioning to this
         # node. Commonly happens when two subtrees are equivalent.
-        val0 = self.value(actions[0].node, 0)
+        val0 = self.value(moves[0], 0)
 
-        other_vals = (self.value(a.node, 0) for a in actions[1:])
+        other_vals = (self.value(move, 0) for move in moves[1:])
         if all(val == val0 for val in other_vals):
-            return actions[0]
+            return moves[0]
 
         # Break ties with psat.
         # Note 1: Triggering this is fairly difficult to arrange in
         #   practice, since entropy and values both sensitive to exact
         #   model.
-        # Note 2: Unlike in general min psat action case, rationality
+        # Note 2: Unlike in general min psat move case, rationality
         #   need note be updated since entropy is already matched.
         # Note 3: This step cannot be cached since psat will, in general,
         #   depend on the rationality.
-        return min(actions, key=lambda n: self.psat(n, rationality))
+        return min(moves, key=lambda n: self.psat(n, rationality))
 
-    def min_psat_action(
-            self, node: Node, rationality: float) -> Tuple[Action, float]:
-        """Return action which minimizes psat of rationality policy."""
+    def min_psat_move(
+            self, node: Node, rationality: float) -> Tuple[Node, float]:
+        """Return move which minimizes psat of rationality policy."""
         assert self.game.label(node) == 'p2'
 
-        # Compute entropy of planned action.
-        planned_action = self.min_ent_action(node, rationality)
-        entropy = self.entropy(planned_action.node, rationality)
+        # Compute entropy of planned move.
+        planned_move = self.min_ent_move(node, rationality)
+        entropy = self.entropy(planned_move, rationality)
 
         # p1 will increase rationality until target entropy matched.
-        def replanned_psat(action: Action) -> float:
-            node = action.node
-
+        def replanned_psat(move: Node) -> float:
             replanned_rationality = rationality
             if rationality < oo:  # Note: can't increase rationality past oo.
-                replanned_rationality = self.match_entropy(node, entropy)
-            return self.psat(node, max(replanned_rationality, 0))
+                replanned_rationality = self.match_entropy(move, entropy)
+            return self.psat(move, max(replanned_rationality, 0))
 
-        # p2 will take the minimum psat of the replanned actions.
-        actions = self.game.actions(node)
-        p2_action = min(actions, key=replanned_psat)
+        # p2 will take the minimum psat of the replanned moves.
+        moves = self.game.moves(node)
+        p2_move = min(moves, key=replanned_psat)
 
         if rationality < oo:
-            rationality = self.match_entropy(p2_action.node, entropy)
+            rationality = self.match_entropy(p2_move, entropy)
 
-        return p2_action, rationality
+        return p2_move, rationality
 
     @cached_stat
     def value(self, node: Node, rationality: float) -> float:
@@ -137,19 +135,19 @@ class TabularCritic:
         if isinstance(label, bool):              # Terminal node.
             return rationality * label if rationality < oo else float(label)
 
-        actions = list(self.game.actions(node))  # Fix order of actions.
+        moves = list(self.game.moves(node))  # Fix order of moves.
 
         if label == 'p2':                        # Player 2 case.
-            p2_action = self.min_ent_action(node, rationality)
-            return self.value(p2_action.node, rationality)
+            p2_move = self.min_ent_move(node, rationality)
+            return self.value(p2_move, rationality)
 
-        values = [self.value(a.node, rationality) for a in actions]
+        values = [self.value(move, rationality) for move in moves]
 
         if label == 'p1':                        # Player 1 case.
             return logsumexp(values) if rationality < oo else max(values)
 
         dist = label                             # Environment case.
-        probs = [dist.prob(a.node) for a in actions]
+        probs = [dist.prob(move) for move in moves]
         return np.average(values, weights=probs)
 
     @cached_stat
@@ -166,11 +164,11 @@ class TabularCritic:
             return 0 if label else -oo
         elif label == 'p2':
             # Plan against optimal deterministic p2 policy.
-            p2_action, rationality = self.min_psat_action(node, rationality)
+            p2_move, rationality = self.min_psat_move(node, rationality)
 
-            return self.lsat(p2_action.node, rationality)
+            return self.lsat(p2_move, rationality)
 
-        node_dist2 = self.action_dist(node, rationality)
+        node_dist2 = self.move_dist(node, rationality)
         return self.lsat(node_dist2, rationality)
 
     def psat(self, node: Node, rationality: float) -> float:
@@ -229,35 +227,35 @@ class TabularCritic:
         if isinstance(label, bool):
             return 0.0  # Terminal node has no entropy.
 
-        node_dist2 = self.action_dist(node, rationality)
+        node_dist2 = self.move_dist(node, rationality)
         return self.entropy(node_dist2, rationality)
 
-    def action_dist(self, state: Node, rationality: float) -> Distribution:
+    def move_dist(self, state: Node, rationality: float) -> Distribution:
         label = self.game.label(state)
         if isinstance(label, bool):
             return Dist({})
         elif label == 'p2':
-            p2_action = self.min_ent_action(state, rationality)
-            return Dist({p2_action.node: 1})  # Assume worst case.
+            p2_move = self.min_ent_move(state, rationality)
+            return Dist({p2_move: 1})  # Assume worst case.
 
-        actions = self.game.actions(state)
+        moves = self.game.moves(state)
 
         if label == 'p1':
-            vals = [self.value(a.node, rationality) for a in actions]
+            vals = [self.value(move, rationality) for move in moves]
 
             if rationality < oo:
                 probs = softmax(vals)
-                return Dist({a.node: p for a, p in zip(actions, probs)})
+                return Dist({move: p for move, p in zip(moves, probs)})
 
-            # If rationality = oo, then we pick uniformly from the best action.
+            # If rationality = oo, then we pick uniformly from the best move.
             optimal = max(vals)
-            support = [a for a, v in zip(actions, vals) if v == optimal]
-            return Dist({a.node: 1 / len(support) for a in support})
+            support = [a for a, v in zip(moves, vals) if v == optimal]
+            return Dist({node: 1 / len(support) for node in support})
 
         return label  # Environment Case. label *is* the distribution.
 
-    def state_dist(self, action: Node, rationality: float) -> Distribution:
-        stack = [(0.0, action, rationality)]
+    def state_dist(self, move: Node, rationality: float) -> Distribution:
+        stack = [(0.0, move, rationality)]
         node2prob = {}
         while stack:
             lprob, node, rationality = stack.pop()
@@ -267,8 +265,8 @@ class TabularCritic:
                 node2prob[node] = lprob
                 continue
             elif label == 'p2':  # Plan against deterministic adversary.
-                p2_action = self.min_ent_action(node, rationality)
-                stack.append((lprob, p2_action.node, rationality))
+                p2_move = self.min_ent_move(node, rationality)
+                stack.append((lprob, p2_move, rationality))
                 continue
             else:
                 dist = label

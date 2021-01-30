@@ -6,10 +6,11 @@ from typing import cast, Any, Callable, Optional, Set, Tuple, Iterable
 
 import attr
 
-from improvisers.game_graph import Action, Node, NodeKinds
+from improvisers.game_graph import Node, NodeKinds
 from improvisers.game_graph import dfs_nodes, validate_game_graph
 
 
+Action = Any
 TimedNode = Tuple[int, Node]
 
 
@@ -22,14 +23,13 @@ class ImplicitGameGraph:
     2. If horizon is provided, then all states reachable
        after horizon steps are considered leafs.
     3. If a leaf label is not `True`, then it consider false.
+    4. Per node, redundant actions are considered a **single** move.
     """
     _root: Node
     player: Callable[[Node], NodeKinds]
     accepting: Callable[[Node], bool]
-    move: Callable[[Node, Any], Node]
-    moves: Callable[[Node], Iterable[Any]]
-    move_prob: Callable[[Node, Any], Optional[float]] = lambda *_: None
-    move_size: Callable[[Node, Any], int] = lambda *_: 1
+    transition: Callable[[Node, Action], Node]
+    actions: Callable[[Node], Iterable[Action]]
     horizon: Optional[int] = None
     validate: bool = True
 
@@ -54,19 +54,15 @@ class ImplicitGameGraph:
             return player
         return self.accepting(node)
 
-    def actions(self, timed_node: Node) -> Set[Action]:
-        actions: Set[Action] = set()
+    def moves(self, timed_node: Node) -> Set[Node]:
+        moves: Set[Node] = set()
         if self.episode_ended(timed_node):
-            return actions
+            return moves
         time, node = cast(TimedNode, timed_node)
 
-        for m in self.moves(node):
-            action = Action(
-                node=(time + 1, self.move(node, m)),
-                prob=self.move_prob(node, m),
-            )
-            actions.add(action)
-        return actions
+        for a in self.actions(node):
+            moves.add((time + 1, self.transition(node, a)))
+        return moves
 
     def nodes(self) -> Iterable[Node]:
         yield from dfs_nodes(self)

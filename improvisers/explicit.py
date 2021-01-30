@@ -8,7 +8,7 @@ from typing import Dict, Literal, Iterable, Set, Tuple, Union, Optional
 import attr
 import numpy as np
 
-from improvisers.game_graph import Action, Node, NodeKinds, validate_game_graph
+from improvisers.game_graph import Node, NodeKinds, validate_game_graph
 
 
 NodeKinds2 = Union[Literal['p1'], Literal['p2'], Literal['env'], bool]
@@ -37,12 +37,6 @@ class ExplicitDist:
         return self.data.keys()
 
 
-def lift_actions(actions: ConcreteActions) -> Set[Action]:
-    if isinstance(actions, set):
-        return {Action(a) for a in actions}
-    return {Action(a, p) for a, p in actions.items()}
-
-
 @attr.s(frozen=True, auto_attribs=True)
 class ExplicitGameGraph:
     root: Node
@@ -58,8 +52,8 @@ class ExplicitGameGraph:
             return ExplicitDist(actions)
         return label
 
-    def actions(self, node: Node) -> Set[Action]:
-        return lift_actions(self.graph[node][1])
+    def moves(self, node: Node) -> Set[Node]:
+        return set(self.graph[node][1])
 
     def nodes(self) -> Iterable[Node]:
         yield from self.graph

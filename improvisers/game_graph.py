@@ -6,7 +6,6 @@ from typing import Hashable, Literal, Protocol
 from typing import Optional, Set, Union, Iterable
 
 
-import attr
 from toposort import toposort_flatten as toposort
 
 
@@ -29,17 +28,6 @@ class Distribution(Protocol):
         ...
 
 
-@attr.s(frozen=True, auto_attribs=True)
-class Action:
-    """Annotated edge in game graph."""
-    node: Node
-    prob: Optional[float] = None
-
-    @property
-    def is_stochastic(self) -> bool:
-        return self.prob is not None
-
-
 class GameGraph(Protocol):
     """Adjacency list representation of game graph."""
     @property
@@ -52,7 +40,7 @@ class GameGraph(Protocol):
     def label(self, node: Node) -> NodeKinds:
         ...
 
-    def actions(self, node: Node) -> Set[Action]:
+    def moves(self, node: Node) -> Set[Node]:
         ...
 
 
@@ -65,7 +53,7 @@ def dfs_nodes(game_graph: GameGraph) -> Iterable[Node]:
 
         yield node
         visited.add(node)
-        stack.extend((a.node for a in game_graph.actions(node)))
+        stack.extend(game_graph.moves(node))
 
 
 def validate_game_graph(game_graph: GameGraph) -> None:
@@ -73,16 +61,16 @@ def validate_game_graph(game_graph: GameGraph) -> None:
 
     1. Graph should define a DAG.
     2. Only terminal nodes should have rewards (and vice versa).
-    3. Environment actions should be stochastic.
+    3. Environment moves should be stochastic.
     """
     nodes = game_graph.nodes()
-    graph = {n: {a.node for a in game_graph.actions(n)} for n in nodes}
+    graph = {n: game_graph.moves(n) for n in nodes}
 
     for node in toposort(graph):
-        actions = game_graph.actions(node)
+        moves = game_graph.moves(node)
         label = game_graph.label(node)
 
-        if isinstance(label, bool) == bool(actions):
+        if isinstance(label, bool) == bool(moves):
             raise ValueError('Terminals <-> label is a reward!')
 
 

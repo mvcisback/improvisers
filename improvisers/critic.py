@@ -35,12 +35,12 @@ class Critic(Protocol):
         """Rationality induced by target psat."""
         ...
 
-    def action_dist(self, state: Node, rationality: float) -> Distribution:
-        """Predicted action distribution at state."""
+    def move_dist(self, state: Node, rationality: float) -> Distribution:
+        """Predicted move distribution at state."""
         ...
 
-    def state_dist(self, action: Node, rationality: float) -> Distribution:
-        """Predicted p1 state distribution after apply action."""
+    def state_dist(self, move: Node, rationality: float) -> Distribution:
+        """Predicted p1 state distribution after applying move."""
         ...
 
     @staticmethod

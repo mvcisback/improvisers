@@ -77,9 +77,9 @@ class Actor:
 
         state = game.root
         while not isinstance(game.label(state), bool):
-            action = critic.action_dist(state, rationality).sample()
-            state_dist = critic.state_dist(action, rationality)
-            state2, obs = yield action, state_dist
+            move = critic.move_dist(state, rationality).sample()
+            state_dist = critic.state_dist(move, rationality)
+            state2, obs = yield move, state_dist
             if obs is None:
                 raise NotImplementedError  # TODO!
             elif isinstance(obs, collections.Sequence):

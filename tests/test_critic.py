@@ -30,15 +30,15 @@ def test_deterministic_critic():
     for i in range(1, 5):
         assert critic.value(i, math.log(2)) == approx(math.log(i + 1))
 
-    # Test action probabilities of policy.
-    assert set(critic.action_dist(0, coeff).support()) == set()
-    assert set(critic.action_dist(1, coeff).support()) == set()
-    assert set(critic.action_dist(2, coeff).support()) == {0, 1}
-    assert set(critic.action_dist(3, coeff).support()) == {0, 2}
-    assert set(critic.action_dist(4, coeff).support()) == {0, 3}
+    # Test move probabilities of policy.
+    assert set(critic.move_dist(0, coeff).support()) == set()
+    assert set(critic.move_dist(1, coeff).support()) == set()
+    assert set(critic.move_dist(2, coeff).support()) == {0, 1}
+    assert set(critic.move_dist(3, coeff).support()) == {0, 2}
+    assert set(critic.move_dist(4, coeff).support()) == {0, 3}
 
     for i in range(2, 5):
-        dist = critic.action_dist(i, coeff)
+        dist = critic.move_dist(i, coeff)
         lratio = math.log(dist.prob(i-1)) - math.log(dist.prob(0))
         assert lratio == approx(math.log(i))
 
@@ -105,11 +105,11 @@ def test_mdp_critic():
         val = critic.value(i, coeff) 
         return (1 + math.exp(val*(2/3 - 1)))**-1
 
-    # Test action probabilities of policy.
+    # Test move probabilities of policy.
     for i in [3, 5, 7]:
-        action = i - 2
-        expected = p1_prob_hi(action)
-        assert critic.action_dist(i, coeff).prob(action) == approx(expected)
+        move = i - 2
+        expected = p1_prob_hi(move)
+        assert critic.move_dist(i, coeff).prob(move) == approx(expected)
 
     assert critic.entropy(0, coeff) == 0
     assert critic.entropy(1, coeff) == 0
