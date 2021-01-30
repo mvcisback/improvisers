@@ -17,7 +17,6 @@ class Action:
     """Annotated edge in game graph."""
     node: Node
     prob: Optional[float] = None
-    size: int = 1
 
     @property
     def is_stochastic(self) -> bool:

@@ -64,7 +64,6 @@ class ImplicitGameGraph:
             action = Action(
                 node=(time + 1, self.move(node, m)),
                 prob=self.move_prob(node, m),
-                size=self.move_size(node, m),
             )
             actions.add(action)
         return actions

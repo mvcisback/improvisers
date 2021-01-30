@@ -22,8 +22,6 @@ class Dist:
     data: Dict[Node, float] = attr.ib(factory=dict)
 
     def entropy(self, critic: Critic, rationality: float) -> float:
-        # Entropy contribution of this action.
-        # TODO: Need to account for action sizes.
         probs = np.array([v for v in self.data.values() if v > 0])
         entropy = -(probs * np.log(probs)).sum()
 
@@ -116,9 +114,9 @@ class TabularCritic:
         # Optimization. If all values are the same, the resulting
         # policy will assign same probability to transitioning to this
         # node. Commonly happens when two subtrees are equivalent.
-        val0 = self.action_value(actions[0], 0)
+        val0 = self.value(actions[0].node, 0)
 
-        other_vals = (self.action_value(a, 0) for a in actions[1:])
+        other_vals = (self.value(a.node, 0) for a in actions[1:])
         if all(val == val0 for val in other_vals):
             return actions[0]
 
@@ -139,7 +137,7 @@ class TabularCritic:
 
         # Compute entropy of planned action.
         planned_action = self.min_ent_action(node, rationality)
-        entropy = self.action_entropy(planned_action, rationality)
+        entropy = self.entropy(planned_action.node, rationality)
 
         # p1 will increase rationality until target entropy matched.
         def replanned_psat(action: Action) -> float:
@@ -159,12 +157,6 @@ class TabularCritic:
 
         return p2_action, rationality
 
-    def action_value(self, action: Action, rationality: float) -> float:
-        return self.value(action.node, rationality) + math.log(action.size)
-
-    def action_entropy(self, action: Action, rationality: float) -> float:
-        return self.entropy(action.node, rationality) + math.log(action.size)
-
     @cached_stat
     def value(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
@@ -176,9 +168,9 @@ class TabularCritic:
 
         if label == 'p2':                        # Player 2 case.
             p2_action = self.min_ent_action(node, rationality)
-            return self.action_value(p2_action, rationality)
+            return self.value(p2_action.node, rationality)
 
-        values = [self.action_value(a, rationality) for a in actions]
+        values = [self.value(a.node, rationality) for a in actions]
 
         if label == 'p1':                        # Player 1 case.
             return logsumexp(values) if rationality < oo else max(values)
@@ -266,7 +258,7 @@ class TabularCritic:
             return Dist({a.node: a.prob for a in actions})  # type: ignore
         else:
             assert label == 'p1'
-            vals = [self.action_value(a, rationality) for a in actions]
+            vals = [self.value(a.node, rationality) for a in actions]
 
             if rationality < oo:
                 probs = softmax(vals)

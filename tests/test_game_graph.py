@@ -25,10 +25,6 @@ def test_game_graph_explicit_smoke():
 
     assert game_graph.root == 1
 
-    for node in game_graph.nodes():
-        for action in game_graph.actions(node):
-            assert action.size == 1
-
 
 def test_game_graph_smoke():
     game_graph = RCI.ImplicitGameGraph(
@@ -36,7 +32,6 @@ def test_game_graph_smoke():
         player=lambda _: 'p1',
         accepting=lambda i: i,
         move=lambda n, c: bool(n ^ c),
-        move_size=lambda *_: 3,
         moves=lambda _: [False, True],
         horizon=2,
     )
@@ -54,7 +49,3 @@ def test_game_graph_smoke():
     assert game_graph.label((1, True)) == 'p1'
     assert game_graph.label((2, False)) is False
     assert game_graph.label((2, True)) is True
-
-    for node in game_graph.nodes():
-        for action in game_graph.actions(node):
-            assert action.size == 3
