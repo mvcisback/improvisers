@@ -218,9 +218,7 @@ class TabularCritic:
     def entropy(self, node_dist: DistLike, rationality: float) -> float:
         if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
             dist = node_dist
-            probs = np.array([v for v in dist.data.values() if v > 0])
-            entropy = -(probs * np.log(probs)).sum()
-
+            entropy = dist.entropy
             # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
             for node in dist.support():
                 entropy += dist.prob(node) * self.entropy(node, rationality)

@@ -24,6 +24,10 @@ class Distribution(Protocol):
         """Iterate over nodes with non-zero probability."""
         ...
 
+    @property
+    def entropy(self) -> float:
+        ...
+
 
 @attr.s(frozen=True, auto_attribs=True)
 class Action:

@@ -6,6 +6,7 @@ import random
 from typing import Dict, Literal, Iterable, Set, Tuple, Union, Optional
 
 import attr
+import numpy as np
 
 from improvisers.game_graph import Action, Node, NodeKinds, validate_game_graph
 
@@ -18,6 +19,11 @@ Graph = Dict[Node, Tuple[NodeKinds2, ConcreteActions]]
 @attr.s(frozen=True, auto_attribs=True, eq=False)
 class ExplicitDist:
     data: Dict[Node, float] = attr.ib(factory=dict)
+
+    @property
+    def entropy(self) -> float:
+        probs = np.array([v for v in self.data.values() if v > 0])
+        return -(probs * np.log(probs)).sum()
 
     def sample(self, seed: Optional[int] = None) -> Node:
         if seed is not None:
