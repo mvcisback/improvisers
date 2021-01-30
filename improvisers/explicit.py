@@ -31,7 +31,6 @@ class ExplicitDist:
         return self.data.keys()
 
 
-
 def lift_actions(actions: ConcreteActions) -> Set[Action]:
     if isinstance(actions, set):
         return {Action(a) for a in actions}

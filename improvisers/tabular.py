@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import math
-import random
-from typing import Hashable, List, Optional, Tuple, Dict, Callable, Iterable
+from typing import Hashable, List, Tuple, Dict, Callable
 
 import attr
 import numpy as np
@@ -256,7 +255,7 @@ class TabularCritic:
             optimal = max(vals)
             support = [a for a, v in zip(actions, vals) if v == optimal]
             return Dist({a.node: 1 / len(support) for a in support})
-        
+
         return label  # Environment Case. label *is* the distribution.
 
     def state_dist(self, action: Node, rationality: float) -> Distribution:
