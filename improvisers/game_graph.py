@@ -47,11 +47,9 @@ def dfs_nodes(game_graph: GameGraph) -> Iterable[Node]:
         if node in visited:
             continue
 
+        yield node
         visited.add(node)
-
-        for a in game_graph.actions(node):
-            yield a.node
-            stack.append(a.node)
+        stack.extend((a.node for a in game_graph.actions(node)))
 
 
 def validate_game_graph(game_graph: GameGraph) -> None:

@@ -39,7 +39,7 @@ class ImplicitGameGraph:
 
     @property
     def root(self) -> TimedNode:
-        return (0, self.root)
+        return (0, self._root)
 
     def episode_ended(self, timed_node: Node) -> bool:
         time, node = cast(TimedNode, timed_node)
@@ -62,7 +62,7 @@ class ImplicitGameGraph:
 
         for m in self.moves(node):
             action = Action(
-                node=self.move(node, m),
+                node=(time + 1, self.move(node, m)),
                 prob=self.move_prob(node, m),
                 size=self.move_size(node, m),
             )
