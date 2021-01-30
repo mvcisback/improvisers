@@ -46,7 +46,6 @@ class Action:
     &#34;&#34;&#34;Annotated edge in game graph.&#34;&#34;&#34;
     node: Node
     prob: Optional[float] = None
-    size: int = 1
 
     @property
     def is_stochastic(self) -&gt; bool:
@@ -76,11 +75,9 @@ def dfs_nodes(game_graph: GameGraph) -&gt; Iterable[Node]:
         if node in visited:
             continue
 
+        yield node
         visited.add(node)
-
-        for a in game_graph.actions(node):
-            yield a.node
-            stack.append(a.node)
+        stack.extend((a.node for a in game_graph.actions(node)))
 
 
 def validate_game_graph(game_graph: GameGraph) -&gt; None:
@@ -133,11 +130,9 @@ __all__ = [
         if node in visited:
             continue
 
+        yield node
         visited.add(node)
-
-        for a in game_graph.actions(node):
-            yield a.node
-            stack.append(a.node)</code></pre>
+        stack.extend((a.node for a in game_graph.actions(node)))</code></pre>
 </details>
 </dd>
 <dt id="improvisers.game_graph.validate_game_graph"><code class="name flex">
@@ -182,7 +177,7 @@ __all__ = [
 <dl>
 <dt id="improvisers.game_graph.Action"><code class="flex name class">
 <span>class <span class="ident">Action</span></span>
-<span>(</span><span>node: Hashable, prob: Union[float, NoneType] = None, size: int = 1)</span>
+<span>(</span><span>node: Hashable, prob: Union[float, NoneType] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Annotated edge in game graph.</p>
@@ -195,7 +190,6 @@ __all__ = [
     &#34;&#34;&#34;Annotated edge in game graph.&#34;&#34;&#34;
     node: Node
     prob: Optional[float] = None
-    size: int = 1
 
     @property
     def is_stochastic(self) -&gt; bool:
@@ -208,10 +202,6 @@ __all__ = [
 <div class="desc"></div>
 </dd>
 <dt id="improvisers.game_graph.Action.prob"><code class="name">var <span class="ident">prob</span> : Union[float, NoneType]</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="improvisers.game_graph.Action.size"><code class="name">var <span class="ident">size</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -348,7 +338,6 @@ def root(self) -&gt; Node:
 <li><code><a title="improvisers.game_graph.Action.is_stochastic" href="#improvisers.game_graph.Action.is_stochastic">is_stochastic</a></code></li>
 <li><code><a title="improvisers.game_graph.Action.node" href="#improvisers.game_graph.Action.node">node</a></code></li>
 <li><code><a title="improvisers.game_graph.Action.prob" href="#improvisers.game_graph.Action.prob">prob</a></code></li>
-<li><code><a title="improvisers.game_graph.Action.size" href="#improvisers.game_graph.Action.size">size</a></code></li>
 </ul>
 </li>
 <li>

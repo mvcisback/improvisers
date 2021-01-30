@@ -68,7 +68,7 @@ class ImplicitGameGraph:
 
     @property
     def root(self) -&gt; TimedNode:
-        return (0, self.root)
+        return (0, self._root)
 
     def episode_ended(self, timed_node: Node) -&gt; bool:
         time, node = cast(TimedNode, timed_node)
@@ -91,9 +91,8 @@ class ImplicitGameGraph:
 
         for m in self.moves(node):
             action = Action(
-                node=self.move(node, m),
+                node=(time + 1, self.move(node, m)),
                 prob=self.move_prob(node, m),
-                size=self.move_size(node, m),
             )
             actions.add(action)
         return actions
@@ -155,7 +154,7 @@ after horizon steps are considered leafs.
 
     @property
     def root(self) -&gt; TimedNode:
-        return (0, self.root)
+        return (0, self._root)
 
     def episode_ended(self, timed_node: Node) -&gt; bool:
         time, node = cast(TimedNode, timed_node)
@@ -178,9 +177,8 @@ after horizon steps are considered leafs.
 
         for m in self.moves(node):
             action = Action(
-                node=self.move(node, m),
+                node=(time + 1, self.move(node, m)),
                 prob=self.move_prob(node, m),
-                size=self.move_size(node, m),
             )
             actions.add(action)
         return actions
@@ -234,7 +232,7 @@ after horizon steps are considered leafs.
 </summary>
 <pre><code class="python">@property
 def root(self) -&gt; TimedNode:
-    return (0, self.root)</code></pre>
+    return (0, self._root)</code></pre>
 </details>
 </dd>
 </dl>
@@ -257,9 +255,8 @@ def root(self) -&gt; TimedNode:
 
     for m in self.moves(node):
         action = Action(
-            node=self.move(node, m),
+            node=(time + 1, self.move(node, m)),
             prob=self.move_prob(node, m),
-            size=self.move_size(node, m),
         )
         actions.add(action)
     return actions</code></pre>

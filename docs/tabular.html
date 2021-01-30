@@ -51,8 +51,6 @@ class Dist:
     data: Dict[Node, float] = attr.ib(factory=dict)
 
     def entropy(self, critic: Critic, rationality: float) -&gt; float:
-        # Entropy contribution of this action.
-        # TODO: Need to account for action sizes.
         probs = np.array([v for v in self.data.values() if v &gt; 0])
         entropy = -(probs * np.log(probs)).sum()
 
@@ -145,9 +143,9 @@ class TabularCritic:
         # Optimization. If all values are the same, the resulting
         # policy will assign same probability to transitioning to this
         # node. Commonly happens when two subtrees are equivalent.
-        val0 = self.action_value(actions[0], 0)
+        val0 = self.value(actions[0].node, 0)
 
-        other_vals = (self.action_value(a, 0) for a in actions[1:])
+        other_vals = (self.value(a.node, 0) for a in actions[1:])
         if all(val == val0 for val in other_vals):
             return actions[0]
 
@@ -168,7 +166,7 @@ class TabularCritic:
 
         # Compute entropy of planned action.
         planned_action = self.min_ent_action(node, rationality)
-        entropy = self.action_entropy(planned_action, rationality)
+        entropy = self.entropy(planned_action.node, rationality)
 
         # p1 will increase rationality until target entropy matched.
         def replanned_psat(action: Action) -&gt; float:
@@ -188,12 +186,6 @@ class TabularCritic:
 
         return p2_action, rationality
 
-    def action_value(self, action: Action, rationality: float) -&gt; float:
-        return self.value(action.node, rationality) + math.log(action.size)
-
-    def action_entropy(self, action: Action, rationality: float) -&gt; float:
-        return self.entropy(action.node, rationality) + math.log(action.size)
-
     @cached_stat
     def value(self, node: Node, rationality: float) -&gt; float:
         label = self.game.label(node)
@@ -205,9 +197,9 @@ class TabularCritic:
 
         if label == &#39;p2&#39;:                        # Player 2 case.
             p2_action = self.min_ent_action(node, rationality)
-            return self.action_value(p2_action, rationality)
+            return self.value(p2_action.node, rationality)
 
-        values = [self.action_value(a, rationality) for a in actions]
+        values = [self.value(a.node, rationality) for a in actions]
 
         if label == &#39;p1&#39;:                        # Player 1 case.
             return logsumexp(values) if rationality &lt; oo else max(values)
@@ -295,7 +287,7 @@ class TabularCritic:
             return Dist({a.node: a.prob for a in actions})  # type: ignore
         else:
             assert label == &#39;p1&#39;
-            vals = [self.action_value(a, rationality) for a in actions]
+            vals = [self.value(a.node, rationality) for a in actions]
 
             if rationality &lt; oo:
                 probs = softmax(vals)
@@ -385,9 +377,9 @@ __all__ = [&#39;TabularCritic&#39;]</code></pre>
         # Optimization. If all values are the same, the resulting
         # policy will assign same probability to transitioning to this
         # node. Commonly happens when two subtrees are equivalent.
-        val0 = self.action_value(actions[0], 0)
+        val0 = self.value(actions[0].node, 0)
 
-        other_vals = (self.action_value(a, 0) for a in actions[1:])
+        other_vals = (self.value(a.node, 0) for a in actions[1:])
         if all(val == val0 for val in other_vals):
             return actions[0]
 
@@ -408,7 +400,7 @@ __all__ = [&#39;TabularCritic&#39;]</code></pre>
 
         # Compute entropy of planned action.
         planned_action = self.min_ent_action(node, rationality)
-        entropy = self.action_entropy(planned_action, rationality)
+        entropy = self.entropy(planned_action.node, rationality)
 
         # p1 will increase rationality until target entropy matched.
         def replanned_psat(action: Action) -&gt; float:
@@ -428,12 +420,6 @@ __all__ = [&#39;TabularCritic&#39;]</code></pre>
 
         return p2_action, rationality
 
-    def action_value(self, action: Action, rationality: float) -&gt; float:
-        return self.value(action.node, rationality) + math.log(action.size)
-
-    def action_entropy(self, action: Action, rationality: float) -&gt; float:
-        return self.entropy(action.node, rationality) + math.log(action.size)
-
     @cached_stat
     def value(self, node: Node, rationality: float) -&gt; float:
         label = self.game.label(node)
@@ -445,9 +431,9 @@ __all__ = [&#39;TabularCritic&#39;]</code></pre>
 
         if label == &#39;p2&#39;:                        # Player 2 case.
             p2_action = self.min_ent_action(node, rationality)
-            return self.action_value(p2_action, rationality)
+            return self.value(p2_action.node, rationality)
 
-        values = [self.action_value(a, rationality) for a in actions]
+        values = [self.value(a.node, rationality) for a in actions]
 
         if label == &#39;p1&#39;:                        # Player 1 case.
             return logsumexp(values) if rationality &lt; oo else max(values)
@@ -535,7 +521,7 @@ __all__ = [&#39;TabularCritic&#39;]</code></pre>
             return Dist({a.node: a.prob for a in actions})  # type: ignore
         else:
             assert label == &#39;p1&#39;
-            vals = [self.action_value(a, rationality) for a in actions]
+            vals = [self.value(a.node, rationality) for a in actions]
 
             if rationality &lt; oo:
                 probs = softmax(vals)
@@ -625,7 +611,7 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
         return Dist({a.node: a.prob for a in actions})  # type: ignore
     else:
         assert label == &#39;p1&#39;
-        vals = [self.action_value(a, rationality) for a in actions]
+        vals = [self.value(a.node, rationality) for a in actions]
 
         if rationality &lt; oo:
             probs = softmax(vals)
@@ -635,32 +621,6 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
         optimal = max(vals)
         support = [a for a, v in zip(actions, vals) if v == optimal]
         return Dist({a.node: 1 / len(support) for a in support})</code></pre>
-</details>
-</dd>
-<dt id="improvisers.tabular.TabularCritic.action_entropy"><code class="name flex">
-<span>def <span class="ident">action_entropy</span></span>(<span>self, action: Action, rationality: float) ‑> float</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def action_entropy(self, action: Action, rationality: float) -&gt; float:
-    return self.entropy(action.node, rationality) + math.log(action.size)</code></pre>
-</details>
-</dd>
-<dt id="improvisers.tabular.TabularCritic.action_value"><code class="name flex">
-<span>def <span class="ident">action_value</span></span>(<span>self, action: Action, rationality: float) ‑> float</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def action_value(self, action: Action, rationality: float) -&gt; float:
-    return self.value(action.node, rationality) + math.log(action.size)</code></pre>
 </details>
 </dd>
 <dt id="improvisers.tabular.TabularCritic.entropy"><code class="name flex">
@@ -747,9 +707,9 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
     # Optimization. If all values are the same, the resulting
     # policy will assign same probability to transitioning to this
     # node. Commonly happens when two subtrees are equivalent.
-    val0 = self.action_value(actions[0], 0)
+    val0 = self.value(actions[0].node, 0)
 
-    other_vals = (self.action_value(a, 0) for a in actions[1:])
+    other_vals = (self.value(a.node, 0) for a in actions[1:])
     if all(val == val0 for val in other_vals):
         return actions[0]
 
@@ -805,7 +765,7 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 
     # Compute entropy of planned action.
     planned_action = self.min_ent_action(node, rationality)
-    entropy = self.action_entropy(planned_action, rationality)
+    entropy = self.entropy(planned_action.node, rationality)
 
     # p1 will increase rationality until target entropy matched.
     def replanned_psat(action: Action) -&gt; float:
@@ -912,8 +872,6 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <h4><code><a title="improvisers.tabular.TabularCritic" href="#improvisers.tabular.TabularCritic">TabularCritic</a></code></h4>
 <ul class="two-column">
 <li><code><a title="improvisers.tabular.TabularCritic.action_dist" href="#improvisers.tabular.TabularCritic.action_dist">action_dist</a></code></li>
-<li><code><a title="improvisers.tabular.TabularCritic.action_entropy" href="#improvisers.tabular.TabularCritic.action_entropy">action_entropy</a></code></li>
-<li><code><a title="improvisers.tabular.TabularCritic.action_value" href="#improvisers.tabular.TabularCritic.action_value">action_value</a></code></li>
 <li><code><a title="improvisers.tabular.TabularCritic.cache" href="#improvisers.tabular.TabularCritic.cache">cache</a></code></li>
 <li><code><a title="improvisers.tabular.TabularCritic.entropy" href="#improvisers.tabular.TabularCritic.entropy">entropy</a></code></li>
 <li><code><a title="improvisers.tabular.TabularCritic.from_game_graph" href="#improvisers.tabular.TabularCritic.from_game_graph">from_game_graph</a></code></li>
