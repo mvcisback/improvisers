@@ -2,24 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Protocol, Optional, Union
+from typing import Protocol, Union
 
-from improvisers.game_graph import Node, GameGraph
-
-
-class Distribution(Protocol):
-    """Protocol for critic aware distribution over nodes."""
-    def sample(self, seed: Optional[int] = None) -> Node:
-        """Returns a sampled node from distribution."""
-        ...
-
-    def prob(self, node: Node) -> float:
-        """Returns probability of given node."""
-        ...
-
-    def support(self) -> Iterable[Node]:
-        """Iterate over nodes with non-zero probability."""
-        ...
+from improvisers.game_graph import Node, GameGraph, Distribution
 
 
 DistLike = Union[Node, Distribution]

@@ -1,5 +1,7 @@
 """Define GameGraph Protocol."""
 
+from __future__ import annotations
+
 from typing import Hashable, Literal, Protocol
 from typing import Optional, Set, Union, Iterable
 
@@ -8,8 +10,19 @@ import attr
 from toposort import toposort_flatten as toposort
 
 
-Node = Hashable
-NodeKinds = Union[Literal['p1'], Literal['p2'], Literal['env'], bool]
+class Distribution(Protocol):
+    """Protocol for distribution over nodes."""
+    def sample(self, seed: Optional[int] = None) -> Node:
+        """Returns a sampled node from distribution."""
+        ...
+
+    def prob(self, node: Node) -> float:
+        """Returns probability of given node."""
+        ...
+
+    def support(self) -> Iterable[Node]:
+        """Iterate over nodes with non-zero probability."""
+        ...
 
 
 @attr.s(frozen=True, auto_attribs=True)
@@ -72,7 +85,11 @@ def validate_game_graph(game_graph: GameGraph) -> None:
             raise ValueError("Environment actions must by stochastic!")
 
 
+Node = Hashable
+NodeKinds = Union[Literal['p1'], Literal['p2'], Literal['env'], bool]
+
+
 __all__ = [
-    'GameGraph', 'Action', 'Node', 'NodeKinds',
+    'GameGraph', 'Distribution', 'Node', 'NodeKinds',
     'dfs_nodes', 'validate_game_graph',
 ]
