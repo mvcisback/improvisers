@@ -38,10 +38,10 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
     Returns:
       Rationality coefficient induced by actual state distribution.
     """
-    expected_entropy = dist1.entropy(critic, coeff)
+    expected_entropy = critic.entropy(dist1, coeff)
 
     def f(x: float) -> float:
-        return dist2.entropy(critic, x) - expected_entropy
+        return critic.entropy(dist2, x) - expected_entropy
 
     # Binary search for rationality coefficient.
     offset = 1

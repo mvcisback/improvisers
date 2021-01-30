@@ -10,14 +10,14 @@ import numpy as np
 from scipy.special import logsumexp, softmax
 from scipy.optimize import brentq
 
-from improvisers.game_graph import Node, Action, GameGraph
-from improvisers.critic import Critic, Distribution
+from improvisers.game_graph import Action, GameGraph, Node
+from improvisers.critic import Critic, Distribution, DistLike
 
 
 oo = float('inf')
 
 
-@attr.s(frozen=True, auto_attribs=True)
+@attr.s(frozen=True, auto_attribs=True, eq=False)
 class Dist:
     data: Dict[Node, float] = attr.ib(factory=dict)
 
@@ -40,14 +40,6 @@ class Dist:
 
     def support(self) -> Iterable[Node]:
         return self.data.keys()
-
-    def lsat(self, critic: Critic, rationality: float) -> float:
-        probs = [self.prob(n) for n in self.support()]
-        lsats = [critic.lsat(n, rationality) for n in self.support()]
-        return logsumexp(lsats, b=probs)
-
-    def psat(self, critic: Critic, rationality: float) -> float:
-        return math.exp(self.lsat(critic, rationality))
 
 
 CacheKey = Tuple[Node, Hashable, float]
@@ -77,7 +69,13 @@ class Cache:
 
 
 def cached_stat(func: NodeStatFunc) -> NodeStatFunc:
-    def wrap(critic: TabularCritic, node: Node, rationality: float) -> float:
+    """Cache node level statistics. Only once per rationality."""
+    def wrap(critic: TabularCritic,
+             node_dist: DistLike,
+             rationality: float) -> float:
+        if isinstance(node_dist, Dist):  # Don't cache distributions.
+            return func(critic, node_dist, rationality)
+        node = node_dist
         if (node, func, rationality) in critic.cache:
             return critic.cache[node, func, rationality]
         val = func(critic, node, rationality)
@@ -181,7 +179,14 @@ class TabularCritic:
         return np.average(values, weights=probs)
 
     @cached_stat
-    def lsat(self, node: Node, rationality: float) -> float:
+    def lsat(self, node_dist: DistLike, rationality: float) -> float:
+        if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
+            dist = node_dist
+            probs = [dist.prob(n) for n in dist.support()]
+            lsats = [self.lsat(n, rationality) for n in dist.support()]
+            return logsumexp(lsats, b=probs)
+        node = node_dist
+
         label = self.game.label(node)
         if isinstance(label, bool):
             return 0 if label else -oo
@@ -191,8 +196,8 @@ class TabularCritic:
 
             return self.lsat(p2_action.node, rationality)
 
-        dist = self.action_dist(node, rationality)
-        return dist.lsat(self, rationality)
+        node_dist2 = self.action_dist(node, rationality)
+        return self.lsat(node_dist2, rationality)
 
     def psat(self, node: Node, rationality: float) -> float:
         sat_prob = math.exp(self.lsat(node, rationality))
@@ -236,13 +241,24 @@ class TabularCritic:
         return self._rationality(node, target, match_entropy=False)
 
     @cached_stat
-    def entropy(self, node: Node, rationality: float) -> float:
+    def entropy(self, node_dist: DistLike, rationality: float) -> float:
+        if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
+            dist = node_dist
+            probs = np.array([v for v in dist.data.values() if v > 0])
+            entropy = -(probs * np.log(probs)).sum()
+
+            # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
+            for node in dist.support():
+                entropy += dist.prob(node) * self.entropy(node, rationality)
+            return entropy
+
+        node = node_dist
         label = self.game.label(node)
         if isinstance(label, bool):
             return 0.0  # Terminal node has no entropy.
 
-        dist = self.action_dist(node, rationality)
-        return dist.entropy(self, rationality)
+        node_dist2 = self.action_dist(node, rationality)
+        return self.entropy(node_dist2, rationality)
 
     def action_dist(self, state: Node, rationality: float) -> Distribution:
         label = self.game.label(state)

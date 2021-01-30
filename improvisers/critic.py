@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Protocol, Optional
+from typing import Iterable, Protocol, Optional, Union
 
 from improvisers.game_graph import Node, GameGraph
 
@@ -21,17 +21,8 @@ class Distribution(Protocol):
         """Iterate over nodes with non-zero probability."""
         ...
 
-    def lsat(self, critic: Critic, rationality: float) -> float:
-        """Return log probability of p1 winning under this distribution."""
-        ...
 
-    def psat(self, critic: Critic, rationality: float) -> float:
-        """Return probability of p1 winning given under this distribution."""
-        ...
-
-    def entropy(self, critic: Critic, rationality: float) -> float:
-        """Return log probability of p1 winning under this distribution."""
-        ...
+DistLike = Union[Node, Distribution]
 
 
 class Critic(Protocol):
@@ -39,15 +30,15 @@ class Critic(Protocol):
         """Soft value of node."""
         ...
 
-    def entropy(self, node: Node, rationality: float) -> float:
+    def entropy(self, node_dist: DistLike, rationality: float) -> float:
         """Causal Entropy of policy starting at node."""
         ...
 
-    def psat(self, node: Node, rationality: float) -> float:
+    def psat(self, node_dist: DistLike, rationality: float) -> float:
         """Worst case sat probability of max ent policy from node."""
         ...
 
-    def lsat(self, node: Node, rationality: float) -> float:
+    def lsat(self, node_dist: DistLike, rationality: float) -> float:
         """Worst case sat log probability of max ent policy from node."""
         ...
 
@@ -73,4 +64,4 @@ class Critic(Protocol):
         ...
 
 
-__all__ = ['Critic', 'Distribution']
+__all__ = ['Critic', 'Distribution', 'DistLike']
