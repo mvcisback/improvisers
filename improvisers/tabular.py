@@ -12,34 +12,10 @@ from scipy.optimize import brentq
 
 from improvisers.game_graph import Action, GameGraph, Node
 from improvisers.critic import Critic, Distribution, DistLike
+from improvisers.explicit import ExplicitDist as Dist
 
 
 oo = float('inf')
-
-
-@attr.s(frozen=True, auto_attribs=True, eq=False)
-class Dist:
-    data: Dict[Node, float] = attr.ib(factory=dict)
-
-    def entropy(self, critic: Critic, rationality: float) -> float:
-        probs = np.array([v for v in self.data.values() if v > 0])
-        entropy = -(probs * np.log(probs)).sum()
-
-        # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
-        for node in self.support():
-            entropy += self.prob(node) * critic.entropy(node, rationality)
-        return entropy
-
-    def sample(self, seed: Optional[int] = None) -> Node:
-        if seed is not None:
-            random.seed(seed)
-        return random.choices(*zip(*self.data.items()))[0]  # type: ignore
-
-    def prob(self, node: Node) -> float:
-        return self.data[node]
-
-    def support(self) -> Iterable[Node]:
-        return self.data.keys()
 
 
 CacheKey = Tuple[Node, Hashable, float]
@@ -173,9 +149,8 @@ class TabularCritic:
         if label == 'p1':                        # Player 1 case.
             return logsumexp(values) if rationality < oo else max(values)
 
-        # Environment case.
-        dist = self.action_dist(node, rationality)
-        probs = [dist.prob(n) for n in dist.support()]
+        dist = label                             # Environment case.
+        probs = [dist.prob(a.node) for a in actions]
         return np.average(values, weights=probs)
 
     @cached_stat
@@ -281,7 +256,8 @@ class TabularCritic:
             optimal = max(vals)
             support = [a for a, v in zip(actions, vals) if v == optimal]
             return Dist({a.node: 1 / len(support) for a in support})
-        return Dist({a.node: a.prob for a in actions})  # type: ignore
+        
+        return label  # Environment Case. label *is* the distribution.
 
     def state_dist(self, action: Node, rationality: float) -> Distribution:
         stack = [(0.0, action, rationality)]
@@ -298,7 +274,7 @@ class TabularCritic:
                 stack.append((lprob, p2_action.node, rationality))
                 continue
             else:
-                dist = self.action_dist(node, rationality)
+                dist = label
                 for node2 in dist.support():
                     lprob2 = lprob + math.log(dist.prob(node2))
                     stack.append((lprob2, node2, rationality))

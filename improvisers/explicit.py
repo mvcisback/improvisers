@@ -25,7 +25,7 @@ class ExplicitDist:
         return random.choices(*zip(*self.data.items()))[0]  # type: ignore
 
     def prob(self, node: Node) -> float:
-        return self.data[node]
+        return self.data.get(node, 0)
 
     def support(self) -> Iterable[Node]:
         return self.data.keys()
