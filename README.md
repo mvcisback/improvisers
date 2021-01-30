@@ -28,7 +28,8 @@ run:
 # Usage
 
 ```python
-from improvisers import policy, ExplicitGameGraph
+from improvisers import solve
+from improvisers import ExplicitGameGraph  # Any class adhearing to the GameGraph protocol below works.
 
 game_graph = ExplicitGameGraph(
     root=5,
@@ -43,5 +44,5 @@ game_graph = ExplicitGameGraph(
 )
 
 actor = solve(game_graph, psat=1/3)
-policy = actor.improvise()
+policy = actor.improvise()  # Co-routine for the improvisation protocol.
 ```

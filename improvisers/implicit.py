@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import cast, Callable, Optional, Set, Tuple, Iterable
+from typing import cast, Any, Callable, Optional, Set, Tuple, Iterable
 
 import attr
 
@@ -24,8 +24,12 @@ class ImplicitGameGraph:
     3. If a leaf label is not `True`, then it consider false.
     """
     _root: Node
-    _actions: Callable[[Node], Set[Action]]
-    _label: Callable[[Node], NodeKinds]
+    player: Callable[[Node], NodeKinds]
+    accepting: Callable[[Node], bool]
+    move: Callable[[Node, Any], Node]
+    moves: Callable[[Node], Iterable[Any]]
+    move_prob: Callable[[Node, Any], Optional[float]] = lambda *_: None
+    move_size: Callable[[Node, Any], int] = lambda *_: 1
     horizon: Optional[int] = None
     validate: bool = True
 
@@ -38,20 +42,32 @@ class ImplicitGameGraph:
         return (0, self.root)
 
     def episode_ended(self, timed_node: Node) -> bool:
-        time, _ = cast(TimedNode, timed_node)
+        time, node = cast(TimedNode, timed_node)
+        if isinstance(self.player(node), bool):
+            return True
         return (self.horizon is not None) and (time >= self.horizon)
 
     def label(self, timed_node: Node) -> NodeKinds:
         _, node = cast(TimedNode, timed_node)
-        label = self._label(node)
-        return label if not self.episode_ended(timed_node) else (label is True)
+        player = self.player(node)
+        if isinstance(player, bool) or not self.episode_ended(timed_node):
+            return player
+        return self.accepting(node)
 
     def actions(self, timed_node: Node) -> Set[Action]:
+        actions: Set[Action] = set()
         if self.episode_ended(timed_node):
-            return set()
+            return actions
         time, node = cast(TimedNode, timed_node)
-        actions = self._actions(node)
-        return {attr.evolve(a, node=(time + 1, a.node)) for a in actions}
+
+        for m in self.moves(node):
+            action = Action(
+                node=self.move(node, m),
+                prob=self.move_prob(node, m),
+                size=self.move_size(node, m),
+            )
+            actions.add(action)
+        return actions
 
     def nodes(self) -> Iterable[Node]:
         yield from dfs_nodes(self)
