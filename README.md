@@ -17,7 +17,7 @@ stochastic games.
 
 Example of [Reactive Control Improvisation (RCI)](http://algoimprov.org/reactive.html) due to [[1]](#rci-ref).
 
-**Note:** The above code was generated using the [rci](https://github.com/dfremont/rci) project. The goal is to soon port this example to the improvisers library.
+**Note:** The example above was generated using the [rci](https://github.com/dfremont/rci) project. The goal is to soon port this example to the improvisers library.
 
 # Installation
 
