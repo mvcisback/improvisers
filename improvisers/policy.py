@@ -90,7 +90,6 @@ def from_p2_path(game: Game,
             for node2 in label.support():
                 lprob2 = lprob + math.log(label.prob(node2))
                 stack.append((node2, path, lprob2))
-            pass
 
     # Convert log probs into probs and return.
     return ExplicitDist({n: math.exp(lprob) for n, lprob in dist.items()})
