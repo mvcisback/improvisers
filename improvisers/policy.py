@@ -21,7 +21,6 @@ Path = Sequence[Node]
 Observation = Union[
     Dist,            # Provide next state distribution.
     Path,            # Observe player 2 path. Worst case counter-factuals.
-    None,            # Assume worst case dist compatible with next p1 state.
 ]
 
 
@@ -59,7 +58,11 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
     return float('inf')  # Effectively infinite.
 
 
-def from_p2_path(game: Game, critic: Critic, state: State, path: Path) -> Dist:
+def from_p2_path(game: Game,
+                 critic: Critic,
+                 state: State,
+                 target: Node,
+                 path: Optional[Path]) -> Dist:
     """Returns the worst case state distribution given observed path."""
     node, rationality = state
     dist: Dict[Node, float] = {}
@@ -69,6 +72,9 @@ def from_p2_path(game: Game, critic: Critic, state: State, path: Path) -> Dist:
         node, path, lprob = stack.pop()
         label = game.label(node)
 
+        if path == [] and node != target:
+            raise NotImplementedError("Do not support partial paths yet.")
+
         if (label == 'p1') or isinstance(label, bool):
             prev_lprob = dist.get(node, 0.0)
             dist[node] = logsumexp([prev_lprob, lprob])
@@ -76,7 +82,7 @@ def from_p2_path(game: Game, critic: Critic, state: State, path: Path) -> Dist:
             if path and (node == path[0]):  # Conform to observed path.
                 node2, *path = path
             else:
-                path = []
+                path = None  # Start counter-factual.
                 node2 = critic.min_ent_move(node, rationality)
 
             stack.append((node2, path, lprob))
@@ -118,16 +124,11 @@ class Actor:
             state_dist = critic.state_dist(move, rationality)
             state2, obs = yield move, state_dist
 
-            if obs is None:
-                # Need to assume worst case. This is done by reduction
-                # to observing the empty p2 path prefix.
-                obs = []
-
             if isinstance(obs, collections.Sequence):
                 # Observed partial p2 path. All unobserved suffixes
                 # assume worst case entropy policy!
-                policy_state = (move, rationality)
-                state_dist2 = from_p2_path(game, critic, policy_state, obs)
+                pstate = (move, rationality)  # Policy State.
+                state_dist2 = from_p2_path(game, critic, pstate, state2, obs)
             else:
                 state_dist2 = obs
 
