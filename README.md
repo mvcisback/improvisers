@@ -11,6 +11,13 @@ stochastic games.
 
 # About
 
+<figure>
+    <img src="assets/drone_example.gif"/>
+</figure>
+
+Example of [Reactive Control Improvisation (RCI)](http://algoimprov.org/reactive.html) due to [[1]](#rci-ref).
+
+**Note:** The above code was generated using the [rci](https://github.com/dfremont/rci) project. The goal is to soon port this example to the improvisers library.
 
 # Installation
 
@@ -46,3 +53,8 @@ game_graph = ExplicitGameGraph(
 actor = solve(game_graph, psat=1/3)
 policy = actor.improvise()  # Co-routine for the improvisation protocol.
 ```
+
+
+# References
+
+<a id="rci-ref" href="https://doi.org/10.1007/978-3-319-96145-3_17"/>[1]: Fremont, Daniel J., and Sanjit A. Seshia. "Reactive control improvisation." International conference on computer aided verification. Springer, Cham, 2018.</a>
