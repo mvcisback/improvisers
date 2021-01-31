@@ -1,20 +1,26 @@
 """Module for synthesizing policies from ERCI instances."""
 
 import collections
-from typing import Generator, Optional, Tuple, Union, Sequence
+import math
+from typing import Dict, Generator, Optional, Tuple, Union, Sequence
 
 import attr
 from scipy.optimize import brentq
+from scipy.special import logsumexp
 
 from improvisers.game_graph import Node, GameGraph
 from improvisers.critic import Critic, Distribution
 from improvisers.tabular import TabularCritic
+from improvisers.explicit import ExplicitDist
 
 
+Game = GameGraph
 Dist = Distribution
+State = Tuple[Node, float]  # Policy State = current node + rationality.
+Path = Sequence[Node]
 Observation = Union[
     Dist,            # Provide next state distribution.
-    Sequence[Node],  # Observe player 2 nodes. Worst case counter-factuals.
+    Path,            # Observe player 2 path. Worst case counter-factuals.
     None,            # Assume worst case dist compatible with next p1 state.
 ]
 
@@ -53,6 +59,37 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -> float:
     return float('inf')  # Effectively infinite.
 
 
+def from_p2_path(game: Game, critic: Critic, state: State, path: Path) -> Dist:
+    """Returns the worst case state distribution given observed path."""
+    node, rationality = state
+    dist: Dict[Node, float] = {}
+
+    stack = [(node, path, 0.0)]
+    while stack:
+        node, path, lprob = stack.pop()
+        label = game.label(node)
+
+        if (label == 'p1') or isinstance(label, bool):
+            prev_lprob = dist.get(node, 0.0)
+            dist[node] = logsumexp([prev_lprob, lprob])
+        elif label == 'p2':
+            if path and (node == path[0]):  # Conform to observed path.
+                node2, *path = path
+            else:
+                path = []
+                node2 = critic.min_ent_move(node, rationality)
+
+            stack.append((node2, path, lprob))
+        else:  # Environment case. label is a distribution.
+            for node2 in label.support():
+                lprob2 = lprob + math.log(label.prob(node2))
+                stack.append((node2, path, lprob2))
+            pass
+
+    # Convert log probs into probs and return.
+    return ExplicitDist({n: math.exp(lprob) for n, lprob in dist.items()})
+
+
 @attr.s(auto_attribs=True, frozen=True)
 class Actor:
     """Factory for improvisation co-routine."""
@@ -80,10 +117,17 @@ class Actor:
             move = critic.move_dist(state, rationality).sample()
             state_dist = critic.state_dist(move, rationality)
             state2, obs = yield move, state_dist
+
             if obs is None:
-                raise NotImplementedError  # TODO!
-            elif isinstance(obs, collections.Sequence):
-                raise NotImplementedError  # TODO!
+                # Need to assume worst case. This is done by reduction
+                # to observing the empty p2 path prefix.
+                obs = []
+
+            if isinstance(obs, collections.Sequence):
+                # Observed partial p2 path. All unobserved suffixes
+                # assume worst case entropy policy!
+                policy_state = (move, rationality)
+                state_dist2 = from_p2_path(game, critic, policy_state, obs)
             else:
                 state_dist2 = obs
 

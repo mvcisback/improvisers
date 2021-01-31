@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, Union
+from typing import Protocol, Tuple, Union
 
 from improvisers.game_graph import Node, GameGraph, Distribution
 
@@ -41,6 +41,14 @@ class Critic(Protocol):
 
     def state_dist(self, move: Node, rationality: float) -> Distribution:
         """Predicted p1 state distribution after applying move."""
+        ...
+
+    def min_ent_move(self, node: Node, rationality: float) -> Node:
+        """Return move which minimizes the (*achievable* entropy, psat)."""
+        ...
+
+    def min_psat_move(self, node: Node, rationality: float) -> Tuple[Node, float]:  # noqa: E501
+        """Return move which minimizes psat of rationality policy."""
         ...
 
     @staticmethod

@@ -81,7 +81,6 @@ class TabularCritic:
         return moves
 
     def min_ent_move(self, node: Node, rationality: float) -> Node:
-        """Return move which minimizes the (*achievable* entropy, psat)."""
         moves = self.min_ent_moves(node)
 
         # Optimization. If all values are the same, the resulting
@@ -105,7 +104,6 @@ class TabularCritic:
 
     def min_psat_move(
             self, node: Node, rationality: float) -> Tuple[Node, float]:
-        """Return move which minimizes psat of rationality policy."""
         assert self.game.label(node) == 'p2'
 
         # Compute entropy of planned move.
