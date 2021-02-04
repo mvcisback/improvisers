@@ -3,6 +3,7 @@ name = "improvisers"
 version = "0.1.6"
 description = "Library for modeling improvisers in stochastic games."
 authors = ["Marcell Vazquez-Chanlatte <mvc@linux.com>"]
+include = ["improvisers/py.typed"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
