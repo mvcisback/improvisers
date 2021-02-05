@@ -29,27 +29,32 @@
 </summary>
 <pre><code class="python">&#34;&#34;&#34;Define GameGraph Protocol.&#34;&#34;&#34;
 
+from __future__ import annotations
+
 from typing import Hashable, Literal, Protocol
 from typing import Optional, Set, Union, Iterable
 
 
-import attr
 from toposort import toposort_flatten as toposort
 
 
-Node = Hashable
-NodeKinds = Union[Literal[&#39;p1&#39;], Literal[&#39;p2&#39;], Literal[&#39;env&#39;], bool]
+class Distribution(Protocol):
+    &#34;&#34;&#34;Protocol for distribution over nodes.&#34;&#34;&#34;
+    def sample(self, seed: Optional[int] = None) -&gt; Node:
+        &#34;&#34;&#34;Returns a sampled node from distribution.&#34;&#34;&#34;
+        ...
 
+    def prob(self, node: Node) -&gt; float:
+        &#34;&#34;&#34;Returns probability of given node.&#34;&#34;&#34;
+        ...
 
-@attr.s(frozen=True, auto_attribs=True)
-class Action:
-    &#34;&#34;&#34;Annotated edge in game graph.&#34;&#34;&#34;
-    node: Node
-    prob: Optional[float] = None
+    def support(self) -&gt; Iterable[Node]:
+        &#34;&#34;&#34;Iterate over nodes with non-zero probability.&#34;&#34;&#34;
+        ...
 
     @property
-    def is_stochastic(self) -&gt; bool:
-        return self.prob is not None
+    def entropy(self) -&gt; float:
+        ...
 
 
 class GameGraph(Protocol):
@@ -58,13 +63,10 @@ class GameGraph(Protocol):
     def root(self) -&gt; Node:
         ...
 
-    def nodes(self) -&gt; Iterable[Node]:
-        ...
-
     def label(self, node: Node) -&gt; NodeKinds:
         ...
 
-    def actions(self, node: Node) -&gt; Set[Action]:
+    def moves(self, node: Node) -&gt; Set[Node]:
         ...
 
 
@@ -77,7 +79,7 @@ def dfs_nodes(game_graph: GameGraph) -&gt; Iterable[Node]:
 
         yield node
         visited.add(node)
-        stack.extend((a.node for a in game_graph.actions(node)))
+        stack.extend(game_graph.moves(node))
 
 
 def validate_game_graph(game_graph: GameGraph) -&gt; None:
@@ -85,24 +87,25 @@ def validate_game_graph(game_graph: GameGraph) -&gt; None:
 
     1. Graph should define a DAG.
     2. Only terminal nodes should have rewards (and vice versa).
-    3. Environment actions should be stochastic.
+    3. Environment moves should be stochastic.
     &#34;&#34;&#34;
-    nodes = game_graph.nodes()
-    graph = {n: {a.node for a in game_graph.actions(n)} for n in nodes}
+    nodes = dfs_nodes(game_graph)
+    graph = {n: game_graph.moves(n) for n in nodes}
 
     for node in toposort(graph):
-        actions = game_graph.actions(node)
+        moves = game_graph.moves(node)
         label = game_graph.label(node)
 
-        if isinstance(label, bool) == bool(actions):
+        if isinstance(label, bool) == bool(moves):
             raise ValueError(&#39;Terminals &lt;-&gt; label is a reward!&#39;)
 
-        if (label == &#34;env&#34;) and not all(a.is_stochastic for a in actions):
-            raise ValueError(&#34;Environment actions must by stochastic!&#34;)
+
+Node = Hashable
+NodeKinds = Union[Literal[&#39;p1&#39;], Literal[&#39;p2&#39;], Distribution, bool]
 
 
 __all__ = [
-    &#39;GameGraph&#39;, &#39;Action&#39;, &#39;Node&#39;, &#39;NodeKinds&#39;,
+    &#39;GameGraph&#39;, &#39;Distribution&#39;, &#39;Node&#39;, &#39;NodeKinds&#39;,
     &#39;dfs_nodes&#39;, &#39;validate_game_graph&#39;,
 ]</code></pre>
 </details>
@@ -132,7 +135,7 @@ __all__ = [
 
         yield node
         visited.add(node)
-        stack.extend((a.node for a in game_graph.actions(node)))</code></pre>
+        stack.extend(game_graph.moves(node))</code></pre>
 </details>
 </dd>
 <dt id="improvisers.game_graph.validate_game_graph"><code class="name flex">
@@ -143,7 +146,7 @@ __all__ = [
 <ol>
 <li>Graph should define a DAG.</li>
 <li>Only terminal nodes should have rewards (and vice versa).</li>
-<li>Environment actions should be stochastic.</li>
+<li>Environment moves should be stochastic.</li>
 </ol></div>
 <details class="source">
 <summary>
@@ -154,20 +157,17 @@ __all__ = [
 
     1. Graph should define a DAG.
     2. Only terminal nodes should have rewards (and vice versa).
-    3. Environment actions should be stochastic.
+    3. Environment moves should be stochastic.
     &#34;&#34;&#34;
-    nodes = game_graph.nodes()
-    graph = {n: {a.node for a in game_graph.actions(n)} for n in nodes}
+    nodes = dfs_nodes(game_graph)
+    graph = {n: game_graph.moves(n) for n in nodes}
 
     for node in toposort(graph):
-        actions = game_graph.actions(node)
+        moves = game_graph.moves(node)
         label = game_graph.label(node)
 
-        if isinstance(label, bool) == bool(actions):
-            raise ValueError(&#39;Terminals &lt;-&gt; label is a reward!&#39;)
-
-        if (label == &#34;env&#34;) and not all(a.is_stochastic for a in actions):
-            raise ValueError(&#34;Environment actions must by stochastic!&#34;)</code></pre>
+        if isinstance(label, bool) == bool(moves):
+            raise ValueError(&#39;Terminals &lt;-&gt; label is a reward!&#39;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -175,40 +175,42 @@ __all__ = [
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="improvisers.game_graph.Action"><code class="flex name class">
-<span>class <span class="ident">Action</span></span>
-<span>(</span><span>node: Hashable, prob: Union[float, NoneType] = None)</span>
+<dt id="improvisers.game_graph.Distribution"><code class="flex name class">
+<span>class <span class="ident">Distribution</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Annotated edge in game graph.</p>
-<p>Method generated by attrs for class Action.</p></div>
+<div class="desc"><p>Protocol for distribution over nodes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Action:
-    &#34;&#34;&#34;Annotated edge in game graph.&#34;&#34;&#34;
-    node: Node
-    prob: Optional[float] = None
+<pre><code class="python">class Distribution(Protocol):
+    &#34;&#34;&#34;Protocol for distribution over nodes.&#34;&#34;&#34;
+    def sample(self, seed: Optional[int] = None) -&gt; Node:
+        &#34;&#34;&#34;Returns a sampled node from distribution.&#34;&#34;&#34;
+        ...
+
+    def prob(self, node: Node) -&gt; float:
+        &#34;&#34;&#34;Returns probability of given node.&#34;&#34;&#34;
+        ...
+
+    def support(self) -&gt; Iterable[Node]:
+        &#34;&#34;&#34;Iterate over nodes with non-zero probability.&#34;&#34;&#34;
+        ...
 
     @property
-    def is_stochastic(self) -&gt; bool:
-        return self.prob is not None</code></pre>
+    def entropy(self) -&gt; float:
+        ...</code></pre>
 </details>
-<h3>Class variables</h3>
-<dl>
-<dt id="improvisers.game_graph.Action.node"><code class="name">var <span class="ident">node</span> : Hashable</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="improvisers.game_graph.Action.prob"><code class="name">var <span class="ident">prob</span> : Union[float, NoneType]</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>typing.Protocol</li>
+<li>typing.Generic</li>
+</ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="improvisers.game_graph.Action.is_stochastic"><code class="name">var <span class="ident">is_stochastic</span> : bool</code></dt>
+<dt id="improvisers.game_graph.Distribution.entropy"><code class="name">var <span class="ident">entropy</span> : float</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -216,8 +218,53 @@ __all__ = [
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def is_stochastic(self) -&gt; bool:
-    return self.prob is not None</code></pre>
+def entropy(self) -&gt; float:
+    ...</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="improvisers.game_graph.Distribution.prob"><code class="name flex">
+<span>def <span class="ident">prob</span></span>(<span>self, node: Node) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns probability of given node.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def prob(self, node: Node) -&gt; float:
+    &#34;&#34;&#34;Returns probability of given node.&#34;&#34;&#34;
+    ...</code></pre>
+</details>
+</dd>
+<dt id="improvisers.game_graph.Distribution.sample"><code class="name flex">
+<span>def <span class="ident">sample</span></span>(<span>self, seed: Optional[int] = None) ‑> Hashable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a sampled node from distribution.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sample(self, seed: Optional[int] = None) -&gt; Node:
+    &#34;&#34;&#34;Returns a sampled node from distribution.&#34;&#34;&#34;
+    ...</code></pre>
+</details>
+</dd>
+<dt id="improvisers.game_graph.Distribution.support"><code class="name flex">
+<span>def <span class="ident">support</span></span>(<span>self) ‑> Iterable[Hashable]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Iterate over nodes with non-zero probability.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def support(self) -&gt; Iterable[Node]:
+    &#34;&#34;&#34;Iterate over nodes with non-zero probability.&#34;&#34;&#34;
+    ...</code></pre>
 </details>
 </dd>
 </dl>
@@ -238,13 +285,10 @@ def is_stochastic(self) -&gt; bool:
     def root(self) -&gt; Node:
         ...
 
-    def nodes(self) -&gt; Iterable[Node]:
-        ...
-
     def label(self, node: Node) -&gt; NodeKinds:
         ...
 
-    def actions(self, node: Node) -&gt; Set[Action]:
+    def moves(self, node: Node) -&gt; Set[Node]:
         ...</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -269,21 +313,8 @@ def root(self) -&gt; Node:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="improvisers.game_graph.GameGraph.actions"><code class="name flex">
-<span>def <span class="ident">actions</span></span>(<span>self, node: Hashable) ‑> Set[<a title="improvisers.game_graph.Action" href="#improvisers.game_graph.Action">Action</a>]</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def actions(self, node: Node) -&gt; Set[Action]:
-    ...</code></pre>
-</details>
-</dd>
 <dt id="improvisers.game_graph.GameGraph.label"><code class="name flex">
-<span>def <span class="ident">label</span></span>(<span>self, node: Hashable) ‑> Union[Literal['p1'], Literal['p2'], Literal['env'], bool]</span>
+<span>def <span class="ident">label</span></span>(<span>self, node: Node) ‑> Union[Literal['p1'], Literal['p2'], <a title="improvisers.game_graph.Distribution" href="#improvisers.game_graph.Distribution">Distribution</a>, bool]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -295,8 +326,8 @@ def root(self) -&gt; Node:
     ...</code></pre>
 </details>
 </dd>
-<dt id="improvisers.game_graph.GameGraph.nodes"><code class="name flex">
-<span>def <span class="ident">nodes</span></span>(<span>self) ‑> Iterable[Hashable]</span>
+<dt id="improvisers.game_graph.GameGraph.moves"><code class="name flex">
+<span>def <span class="ident">moves</span></span>(<span>self, node: Node) ‑> Set[Hashable]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -304,7 +335,7 @@ def root(self) -&gt; Node:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def nodes(self) -&gt; Iterable[Node]:
+<pre><code class="python">def moves(self, node: Node) -&gt; Set[Node]:
     ...</code></pre>
 </details>
 </dd>
@@ -333,19 +364,19 @@ def root(self) -&gt; Node:
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="improvisers.game_graph.Action" href="#improvisers.game_graph.Action">Action</a></code></h4>
+<h4><code><a title="improvisers.game_graph.Distribution" href="#improvisers.game_graph.Distribution">Distribution</a></code></h4>
 <ul class="">
-<li><code><a title="improvisers.game_graph.Action.is_stochastic" href="#improvisers.game_graph.Action.is_stochastic">is_stochastic</a></code></li>
-<li><code><a title="improvisers.game_graph.Action.node" href="#improvisers.game_graph.Action.node">node</a></code></li>
-<li><code><a title="improvisers.game_graph.Action.prob" href="#improvisers.game_graph.Action.prob">prob</a></code></li>
+<li><code><a title="improvisers.game_graph.Distribution.entropy" href="#improvisers.game_graph.Distribution.entropy">entropy</a></code></li>
+<li><code><a title="improvisers.game_graph.Distribution.prob" href="#improvisers.game_graph.Distribution.prob">prob</a></code></li>
+<li><code><a title="improvisers.game_graph.Distribution.sample" href="#improvisers.game_graph.Distribution.sample">sample</a></code></li>
+<li><code><a title="improvisers.game_graph.Distribution.support" href="#improvisers.game_graph.Distribution.support">support</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="improvisers.game_graph.GameGraph" href="#improvisers.game_graph.GameGraph">GameGraph</a></code></h4>
 <ul class="">
-<li><code><a title="improvisers.game_graph.GameGraph.actions" href="#improvisers.game_graph.GameGraph.actions">actions</a></code></li>
 <li><code><a title="improvisers.game_graph.GameGraph.label" href="#improvisers.game_graph.GameGraph.label">label</a></code></li>
-<li><code><a title="improvisers.game_graph.GameGraph.nodes" href="#improvisers.game_graph.GameGraph.nodes">nodes</a></code></li>
+<li><code><a title="improvisers.game_graph.GameGraph.moves" href="#improvisers.game_graph.GameGraph.moves">moves</a></code></li>
 <li><code><a title="improvisers.game_graph.GameGraph.root" href="#improvisers.game_graph.GameGraph.root">root</a></code></li>
 </ul>
 </li>

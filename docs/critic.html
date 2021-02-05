@@ -31,36 +31,12 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Protocol, Optional
+from typing import Protocol, Tuple, Union
 
-from improvisers.game_graph import Node, GameGraph
+from improvisers.game_graph import Node, GameGraph, Distribution
 
 
-class Distribution(Protocol):
-    &#34;&#34;&#34;Protocol for critic aware distribution over nodes.&#34;&#34;&#34;
-    def sample(self, seed: Optional[int] = None) -&gt; Node:
-        &#34;&#34;&#34;Returns a sampled node from distribution.&#34;&#34;&#34;
-        ...
-
-    def prob(self, node: Node) -&gt; float:
-        &#34;&#34;&#34;Returns probability of given node.&#34;&#34;&#34;
-        ...
-
-    def support(self) -&gt; Iterable[Node]:
-        &#34;&#34;&#34;Iterate over nodes with non-zero probability.&#34;&#34;&#34;
-        ...
-
-    def lsat(self, critic: Critic, rationality: float) -&gt; float:
-        &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
-        ...
-
-    def psat(self, critic: Critic, rationality: float) -&gt; float:
-        &#34;&#34;&#34;Return probability of p1 winning given under this distribution.&#34;&#34;&#34;
-        ...
-
-    def entropy(self, critic: Critic, rationality: float) -&gt; float:
-        &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
-        ...
+DistLike = Union[Node, Distribution]
 
 
 class Critic(Protocol):
@@ -68,15 +44,15 @@ class Critic(Protocol):
         &#34;&#34;&#34;Soft value of node.&#34;&#34;&#34;
         ...
 
-    def entropy(self, node: Node, rationality: float) -&gt; float:
+    def entropy(self, node_dist: DistLike, rationality: float) -&gt; float:
         &#34;&#34;&#34;Causal Entropy of policy starting at node.&#34;&#34;&#34;
         ...
 
-    def psat(self, node: Node, rationality: float) -&gt; float:
+    def psat(self, node_dist: DistLike, rationality: float) -&gt; float:
         &#34;&#34;&#34;Worst case sat probability of max ent policy from node.&#34;&#34;&#34;
         ...
 
-    def lsat(self, node: Node, rationality: float) -&gt; float:
+    def lsat(self, node_dist: DistLike, rationality: float) -&gt; float:
         &#34;&#34;&#34;Worst case sat log probability of max ent policy from node.&#34;&#34;&#34;
         ...
 
@@ -88,12 +64,20 @@ class Critic(Protocol):
         &#34;&#34;&#34;Rationality induced by target psat.&#34;&#34;&#34;
         ...
 
-    def action_dist(self, state: Node, rationality: float) -&gt; Distribution:
-        &#34;&#34;&#34;Predicted action distribution at state.&#34;&#34;&#34;
+    def move_dist(self, state: Node, rationality: float) -&gt; Distribution:
+        &#34;&#34;&#34;Predicted move distribution at state.&#34;&#34;&#34;
         ...
 
-    def state_dist(self, action: Node, rationality: float) -&gt; Distribution:
-        &#34;&#34;&#34;Predicted p1 state distribution after apply action.&#34;&#34;&#34;
+    def state_dist(self, move: Node, rationality: float) -&gt; Distribution:
+        &#34;&#34;&#34;Predicted p1 state distribution after applying move.&#34;&#34;&#34;
+        ...
+
+    def min_ent_move(self, node: Node, rationality: float) -&gt; Node:
+        &#34;&#34;&#34;Return move which minimizes the (*achievable* entropy, psat).&#34;&#34;&#34;
+        ...
+
+    def min_psat_move(self, node: Node, rationality: float) -&gt; Tuple[Node, float]:  # noqa: E501
+        &#34;&#34;&#34;Return move which minimizes psat of rationality policy.&#34;&#34;&#34;
         ...
 
     @staticmethod
@@ -102,7 +86,7 @@ class Critic(Protocol):
         ...
 
 
-__all__ = [&#39;Critic&#39;, &#39;Distribution&#39;]</code></pre>
+__all__ = [&#39;Critic&#39;, &#39;Distribution&#39;, &#39;DistLike&#39;]</code></pre>
 </details>
 </section>
 <section>
@@ -153,15 +137,15 @@ Protocol classes can be generic, they are defined as::</p>
         &#34;&#34;&#34;Soft value of node.&#34;&#34;&#34;
         ...
 
-    def entropy(self, node: Node, rationality: float) -&gt; float:
+    def entropy(self, node_dist: DistLike, rationality: float) -&gt; float:
         &#34;&#34;&#34;Causal Entropy of policy starting at node.&#34;&#34;&#34;
         ...
 
-    def psat(self, node: Node, rationality: float) -&gt; float:
+    def psat(self, node_dist: DistLike, rationality: float) -&gt; float:
         &#34;&#34;&#34;Worst case sat probability of max ent policy from node.&#34;&#34;&#34;
         ...
 
-    def lsat(self, node: Node, rationality: float) -&gt; float:
+    def lsat(self, node_dist: DistLike, rationality: float) -&gt; float:
         &#34;&#34;&#34;Worst case sat log probability of max ent policy from node.&#34;&#34;&#34;
         ...
 
@@ -173,12 +157,20 @@ Protocol classes can be generic, they are defined as::</p>
         &#34;&#34;&#34;Rationality induced by target psat.&#34;&#34;&#34;
         ...
 
-    def action_dist(self, state: Node, rationality: float) -&gt; Distribution:
-        &#34;&#34;&#34;Predicted action distribution at state.&#34;&#34;&#34;
+    def move_dist(self, state: Node, rationality: float) -&gt; Distribution:
+        &#34;&#34;&#34;Predicted move distribution at state.&#34;&#34;&#34;
         ...
 
-    def state_dist(self, action: Node, rationality: float) -&gt; Distribution:
-        &#34;&#34;&#34;Predicted p1 state distribution after apply action.&#34;&#34;&#34;
+    def state_dist(self, move: Node, rationality: float) -&gt; Distribution:
+        &#34;&#34;&#34;Predicted p1 state distribution after applying move.&#34;&#34;&#34;
+        ...
+
+    def min_ent_move(self, node: Node, rationality: float) -&gt; Node:
+        &#34;&#34;&#34;Return move which minimizes the (*achievable* entropy, psat).&#34;&#34;&#34;
+        ...
+
+    def min_psat_move(self, node: Node, rationality: float) -&gt; Tuple[Node, float]:  # noqa: E501
+        &#34;&#34;&#34;Return move which minimizes psat of rationality policy.&#34;&#34;&#34;
         ...
 
     @staticmethod
@@ -211,22 +203,8 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="improvisers.critic.Critic.action_dist"><code class="name flex">
-<span>def <span class="ident">action_dist</span></span>(<span>self, state: Node, rationality: float) ‑> <a title="improvisers.critic.Distribution" href="#improvisers.critic.Distribution">Distribution</a></span>
-</code></dt>
-<dd>
-<div class="desc"><p>Predicted action distribution at state.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def action_dist(self, state: Node, rationality: float) -&gt; Distribution:
-    &#34;&#34;&#34;Predicted action distribution at state.&#34;&#34;&#34;
-    ...</code></pre>
-</details>
-</dd>
 <dt id="improvisers.critic.Critic.entropy"><code class="name flex">
-<span>def <span class="ident">entropy</span></span>(<span>self, node: Node, rationality: float) ‑> float</span>
+<span>def <span class="ident">entropy</span></span>(<span>self, node_dist: DistLike, rationality: float) ‑> float</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Causal Entropy of policy starting at node.</p></div>
@@ -234,13 +212,13 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def entropy(self, node: Node, rationality: float) -&gt; float:
+<pre><code class="python">def entropy(self, node_dist: DistLike, rationality: float) -&gt; float:
     &#34;&#34;&#34;Causal Entropy of policy starting at node.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
 <dt id="improvisers.critic.Critic.lsat"><code class="name flex">
-<span>def <span class="ident">lsat</span></span>(<span>self, node: Node, rationality: float) ‑> float</span>
+<span>def <span class="ident">lsat</span></span>(<span>self, node_dist: DistLike, rationality: float) ‑> float</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Worst case sat log probability of max ent policy from node.</p></div>
@@ -248,7 +226,7 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def lsat(self, node: Node, rationality: float) -&gt; float:
+<pre><code class="python">def lsat(self, node_dist: DistLike, rationality: float) -&gt; float:
     &#34;&#34;&#34;Worst case sat log probability of max ent policy from node.&#34;&#34;&#34;
     ...</code></pre>
 </details>
@@ -281,8 +259,50 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
     ...</code></pre>
 </details>
 </dd>
+<dt id="improvisers.critic.Critic.min_ent_move"><code class="name flex">
+<span>def <span class="ident">min_ent_move</span></span>(<span>self, node: Node, rationality: float) ‑> Hashable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return move which minimizes the (<em>achievable</em> entropy, psat).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def min_ent_move(self, node: Node, rationality: float) -&gt; Node:
+    &#34;&#34;&#34;Return move which minimizes the (*achievable* entropy, psat).&#34;&#34;&#34;
+    ...</code></pre>
+</details>
+</dd>
+<dt id="improvisers.critic.Critic.min_psat_move"><code class="name flex">
+<span>def <span class="ident">min_psat_move</span></span>(<span>self, node: Node, rationality: float) ‑> Tuple[Hashable, float]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return move which minimizes psat of rationality policy.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def min_psat_move(self, node: Node, rationality: float) -&gt; Tuple[Node, float]:  # noqa: E501
+    &#34;&#34;&#34;Return move which minimizes psat of rationality policy.&#34;&#34;&#34;
+    ...</code></pre>
+</details>
+</dd>
+<dt id="improvisers.critic.Critic.move_dist"><code class="name flex">
+<span>def <span class="ident">move_dist</span></span>(<span>self, state: Node, rationality: float) ‑> <a title="improvisers.game_graph.Distribution" href="game_graph.html#improvisers.game_graph.Distribution">Distribution</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Predicted move distribution at state.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def move_dist(self, state: Node, rationality: float) -&gt; Distribution:
+    &#34;&#34;&#34;Predicted move distribution at state.&#34;&#34;&#34;
+    ...</code></pre>
+</details>
+</dd>
 <dt id="improvisers.critic.Critic.psat"><code class="name flex">
-<span>def <span class="ident">psat</span></span>(<span>self, node: Node, rationality: float) ‑> float</span>
+<span>def <span class="ident">psat</span></span>(<span>self, node_dist: DistLike, rationality: float) ‑> float</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Worst case sat probability of max ent policy from node.</p></div>
@@ -290,22 +310,22 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def psat(self, node: Node, rationality: float) -&gt; float:
+<pre><code class="python">def psat(self, node_dist: DistLike, rationality: float) -&gt; float:
     &#34;&#34;&#34;Worst case sat probability of max ent policy from node.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
 <dt id="improvisers.critic.Critic.state_dist"><code class="name flex">
-<span>def <span class="ident">state_dist</span></span>(<span>self, action: Node, rationality: float) ‑> <a title="improvisers.critic.Distribution" href="#improvisers.critic.Distribution">Distribution</a></span>
+<span>def <span class="ident">state_dist</span></span>(<span>self, move: Node, rationality: float) ‑> <a title="improvisers.game_graph.Distribution" href="game_graph.html#improvisers.game_graph.Distribution">Distribution</a></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Predicted p1 state distribution after apply action.</p></div>
+<div class="desc"><p>Predicted p1 state distribution after applying move.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def state_dist(self, action: Node, rationality: float) -&gt; Distribution:
-    &#34;&#34;&#34;Predicted p1 state distribution after apply action.&#34;&#34;&#34;
+<pre><code class="python">def state_dist(self, move: Node, rationality: float) -&gt; Distribution:
+    &#34;&#34;&#34;Predicted p1 state distribution after applying move.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
@@ -330,13 +350,13 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Protocol for critic aware distribution over nodes.</p></div>
+<div class="desc"><p>Protocol for distribution over nodes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Distribution(Protocol):
-    &#34;&#34;&#34;Protocol for critic aware distribution over nodes.&#34;&#34;&#34;
+    &#34;&#34;&#34;Protocol for distribution over nodes.&#34;&#34;&#34;
     def sample(self, seed: Optional[int] = None) -&gt; Node:
         &#34;&#34;&#34;Returns a sampled node from distribution.&#34;&#34;&#34;
         ...
@@ -349,16 +369,8 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
         &#34;&#34;&#34;Iterate over nodes with non-zero probability.&#34;&#34;&#34;
         ...
 
-    def lsat(self, critic: Critic, rationality: float) -&gt; float:
-        &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
-        ...
-
-    def psat(self, critic: Critic, rationality: float) -&gt; float:
-        &#34;&#34;&#34;Return probability of p1 winning given under this distribution.&#34;&#34;&#34;
-        ...
-
-    def entropy(self, critic: Critic, rationality: float) -&gt; float:
-        &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
+    @property
+    def entropy(self) -&gt; float:
         ...</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -366,36 +378,23 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <li>typing.Protocol</li>
 <li>typing.Generic</li>
 </ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="improvisers.critic.Distribution.entropy"><code class="name">var <span class="ident">entropy</span> : float</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def entropy(self) -&gt; float:
+    ...</code></pre>
+</details>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
-<dt id="improvisers.critic.Distribution.entropy"><code class="name flex">
-<span>def <span class="ident">entropy</span></span>(<span>self, critic: <a title="improvisers.critic.Critic" href="#improvisers.critic.Critic">Critic</a>, rationality: float) ‑> float</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Return log probability of p1 winning under this distribution.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def entropy(self, critic: Critic, rationality: float) -&gt; float:
-    &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
-    ...</code></pre>
-</details>
-</dd>
-<dt id="improvisers.critic.Distribution.lsat"><code class="name flex">
-<span>def <span class="ident">lsat</span></span>(<span>self, critic: <a title="improvisers.critic.Critic" href="#improvisers.critic.Critic">Critic</a>, rationality: float) ‑> float</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Return log probability of p1 winning under this distribution.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def lsat(self, critic: Critic, rationality: float) -&gt; float:
-    &#34;&#34;&#34;Return log probability of p1 winning under this distribution.&#34;&#34;&#34;
-    ...</code></pre>
-</details>
-</dd>
 <dt id="improvisers.critic.Distribution.prob"><code class="name flex">
 <span>def <span class="ident">prob</span></span>(<span>self, node: Node) ‑> float</span>
 </code></dt>
@@ -407,20 +406,6 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 </summary>
 <pre><code class="python">def prob(self, node: Node) -&gt; float:
     &#34;&#34;&#34;Returns probability of given node.&#34;&#34;&#34;
-    ...</code></pre>
-</details>
-</dd>
-<dt id="improvisers.critic.Distribution.psat"><code class="name flex">
-<span>def <span class="ident">psat</span></span>(<span>self, critic: <a title="improvisers.critic.Critic" href="#improvisers.critic.Critic">Critic</a>, rationality: float) ‑> float</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Return probability of p1 winning given under this distribution.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def psat(self, critic: Critic, rationality: float) -&gt; float:
-    &#34;&#34;&#34;Return probability of p1 winning given under this distribution.&#34;&#34;&#34;
     ...</code></pre>
 </details>
 </dd>
@@ -473,12 +458,14 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 <li>
 <h4><code><a title="improvisers.critic.Critic" href="#improvisers.critic.Critic">Critic</a></code></h4>
 <ul class="two-column">
-<li><code><a title="improvisers.critic.Critic.action_dist" href="#improvisers.critic.Critic.action_dist">action_dist</a></code></li>
 <li><code><a title="improvisers.critic.Critic.entropy" href="#improvisers.critic.Critic.entropy">entropy</a></code></li>
 <li><code><a title="improvisers.critic.Critic.from_game_graph" href="#improvisers.critic.Critic.from_game_graph">from_game_graph</a></code></li>
 <li><code><a title="improvisers.critic.Critic.lsat" href="#improvisers.critic.Critic.lsat">lsat</a></code></li>
 <li><code><a title="improvisers.critic.Critic.match_entropy" href="#improvisers.critic.Critic.match_entropy">match_entropy</a></code></li>
 <li><code><a title="improvisers.critic.Critic.match_psat" href="#improvisers.critic.Critic.match_psat">match_psat</a></code></li>
+<li><code><a title="improvisers.critic.Critic.min_ent_move" href="#improvisers.critic.Critic.min_ent_move">min_ent_move</a></code></li>
+<li><code><a title="improvisers.critic.Critic.min_psat_move" href="#improvisers.critic.Critic.min_psat_move">min_psat_move</a></code></li>
+<li><code><a title="improvisers.critic.Critic.move_dist" href="#improvisers.critic.Critic.move_dist">move_dist</a></code></li>
 <li><code><a title="improvisers.critic.Critic.psat" href="#improvisers.critic.Critic.psat">psat</a></code></li>
 <li><code><a title="improvisers.critic.Critic.state_dist" href="#improvisers.critic.Critic.state_dist">state_dist</a></code></li>
 <li><code><a title="improvisers.critic.Critic.value" href="#improvisers.critic.Critic.value">value</a></code></li>
@@ -486,11 +473,9 @@ def from_game_graph(game_graph: GameGraph) -&gt; Critic:
 </li>
 <li>
 <h4><code><a title="improvisers.critic.Distribution" href="#improvisers.critic.Distribution">Distribution</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="improvisers.critic.Distribution.entropy" href="#improvisers.critic.Distribution.entropy">entropy</a></code></li>
-<li><code><a title="improvisers.critic.Distribution.lsat" href="#improvisers.critic.Distribution.lsat">lsat</a></code></li>
 <li><code><a title="improvisers.critic.Distribution.prob" href="#improvisers.critic.Distribution.prob">prob</a></code></li>
-<li><code><a title="improvisers.critic.Distribution.psat" href="#improvisers.critic.Distribution.psat">psat</a></code></li>
 <li><code><a title="improvisers.critic.Distribution.sample" href="#improvisers.critic.Distribution.sample">sample</a></code></li>
 <li><code><a title="improvisers.critic.Distribution.support" href="#improvisers.critic.Distribution.support">support</a></code></li>
 </ul>

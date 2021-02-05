@@ -55,8 +55,5 @@ class ExplicitGameGraph:
     def moves(self, node: Node) -> Set[Node]:
         return set(self.graph[node][1])
 
-    def nodes(self) -> Iterable[Node]:
-        yield from self.graph
-
 
 __all__ = ['ExplicitGameGraph', 'ExplicitDist']

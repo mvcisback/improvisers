@@ -30,21 +30,26 @@
 <pre><code class="python">&#34;&#34;&#34;Module for synthesizing policies from ERCI instances.&#34;&#34;&#34;
 
 import collections
-from typing import Generator, Optional, Tuple, Union, Sequence
+import math
+from typing import Dict, Generator, Optional, Tuple, Union, Sequence
 
 import attr
 from scipy.optimize import brentq
+from scipy.special import logsumexp
 
 from improvisers.game_graph import Node, GameGraph
 from improvisers.critic import Critic, Distribution
 from improvisers.tabular import TabularCritic
+from improvisers.explicit import ExplicitDist
 
 
+Game = GameGraph
 Dist = Distribution
+State = Tuple[Node, float]  # Policy State = current node + rationality.
+Path = Sequence[Node]
 Observation = Union[
     Dist,            # Provide next state distribution.
-    Sequence[Node],  # Observe player 2 nodes. Worst case counter-factuals.
-    None,            # Assume worst case dist compatible with next p1 state.
+    Path,            # Observe player 2 path. Worst case counter-factuals.
 ]
 
 
@@ -67,10 +72,10 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -&gt; float:
     Returns:
       Rationality coefficient induced by actual state distribution.
     &#34;&#34;&#34;
-    expected_entropy = dist1.entropy(critic, coeff)
+    expected_entropy = critic.entropy(dist1, coeff)
 
     def f(x: float) -&gt; float:
-        return dist2.entropy(critic, x) - expected_entropy
+        return critic.entropy(dist2, x) - expected_entropy
 
     # Binary search for rationality coefficient.
     offset = 1
@@ -80,6 +85,43 @@ def replan(coeff: float, critic: Critic, dist1: Dist, dist2: Dist) -&gt; float:
         except ValueError:
             offset *= 2
     return float(&#39;inf&#39;)  # Effectively infinite.
+
+
+def from_p2_path(game: Game,
+                 critic: Critic,
+                 state: State,
+                 target: Node,
+                 path: Optional[Path]) -&gt; Dist:
+    &#34;&#34;&#34;Returns the worst case state distribution given observed path.&#34;&#34;&#34;
+    node, rationality = state
+    dist: Dict[Node, float] = {}
+
+    stack = [(node, path, 0.0)]
+    while stack:
+        node, path, lprob = stack.pop()
+        label = game.label(node)
+
+        if path == [] and node != target:
+            raise NotImplementedError(&#34;Do not support partial paths yet.&#34;)
+
+        if (label == &#39;p1&#39;) or isinstance(label, bool):
+            prev_lprob = dist.get(node, 0.0)
+            dist[node] = logsumexp([prev_lprob, lprob])
+        elif label == &#39;p2&#39;:
+            if path and (node == path[0]):  # Conform to observed path.
+                node2, *path = path
+            else:
+                path = None  # Start counter-factual.
+                node2 = critic.min_ent_move(node, rationality)
+
+            stack.append((node2, path, lprob))
+        else:  # Environment case. label is a distribution.
+            for node2 in label.support():
+                lprob2 = lprob + math.log(label.prob(node2))
+                stack.append((node2, path, lprob2))
+
+    # Convert log probs into probs and return.
+    return ExplicitDist({n: math.exp(lprob) for n, lprob in dist.items()})
 
 
 @attr.s(auto_attribs=True, frozen=True)
@@ -106,13 +148,15 @@ class Actor:
 
         state = game.root
         while not isinstance(game.label(state), bool):
-            action = critic.action_dist(state, rationality).sample()
-            state_dist = critic.state_dist(action, rationality)
-            state2, obs = yield action, state_dist
-            if obs is None:
-                raise NotImplementedError  # TODO!
-            elif isinstance(obs, collections.Sequence):
-                raise NotImplementedError  # TODO!
+            move = critic.move_dist(state, rationality).sample()
+            state_dist = critic.state_dist(move, rationality)
+            state2, obs = yield move, state_dist
+
+            if isinstance(obs, collections.Sequence):
+                # Observed partial p2 path. All unobserved suffixes
+                # assume worst case entropy policy!
+                pstate = (move, rationality)  # Policy State.
+                state_dist2 = from_p2_path(game, critic, pstate, state2, obs)
             else:
                 state_dist2 = obs
 
@@ -259,13 +303,15 @@ __all__ = [&#39;solve&#39;, &#39;Actor&#39;, &#39;ImprovProtocol&#39;]</code></p
 
         state = game.root
         while not isinstance(game.label(state), bool):
-            action = critic.action_dist(state, rationality).sample()
-            state_dist = critic.state_dist(action, rationality)
-            state2, obs = yield action, state_dist
-            if obs is None:
-                raise NotImplementedError  # TODO!
-            elif isinstance(obs, collections.Sequence):
-                raise NotImplementedError  # TODO!
+            move = critic.move_dist(state, rationality).sample()
+            state_dist = critic.state_dist(move, rationality)
+            state2, obs = yield move, state_dist
+
+            if isinstance(obs, collections.Sequence):
+                # Observed partial p2 path. All unobserved suffixes
+                # assume worst case entropy policy!
+                pstate = (move, rationality)  # Policy State.
+                state_dist2 = from_p2_path(game, critic, pstate, state2, obs)
             else:
                 state_dist2 = obs
 
@@ -292,7 +338,7 @@ __all__ = [&#39;solve&#39;, &#39;Actor&#39;, &#39;ImprovProtocol&#39;]</code></p
 <h3>Methods</h3>
 <dl>
 <dt id="improvisers.policy.Actor.improvise"><code class="name flex">
-<span>def <span class="ident">improvise</span></span>(<span>self) ‑> Generator[Tuple[Hashable, <a title="improvisers.critic.Distribution" href="critic.html#improvisers.critic.Distribution">Distribution</a>], Tuple[Hashable, Union[<a title="improvisers.critic.Distribution" href="critic.html#improvisers.critic.Distribution">Distribution</a>, Sequence[Hashable], NoneType]], bool]</span>
+<span>def <span class="ident">improvise</span></span>(<span>self) ‑> Generator[Tuple[Hashable, <a title="improvisers.game_graph.Distribution" href="game_graph.html#improvisers.game_graph.Distribution">Distribution</a>], Tuple[Hashable, Union[<a title="improvisers.game_graph.Distribution" href="game_graph.html#improvisers.game_graph.Distribution">Distribution</a>, Sequence[Hashable]]], bool]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Improviser for game graph.</p>
@@ -324,13 +370,15 @@ distribution.</p>
 
     state = game.root
     while not isinstance(game.label(state), bool):
-        action = critic.action_dist(state, rationality).sample()
-        state_dist = critic.state_dist(action, rationality)
-        state2, obs = yield action, state_dist
-        if obs is None:
-            raise NotImplementedError  # TODO!
-        elif isinstance(obs, collections.Sequence):
-            raise NotImplementedError  # TODO!
+        move = critic.move_dist(state, rationality).sample()
+        state_dist = critic.state_dist(move, rationality)
+        state2, obs = yield move, state_dist
+
+        if isinstance(obs, collections.Sequence):
+            # Observed partial p2 path. All unobserved suffixes
+            # assume worst case entropy policy!
+            pstate = (move, rationality)  # Policy State.
+            state_dist2 = from_p2_path(game, critic, pstate, state2, obs)
         else:
             state_dist2 = obs
 

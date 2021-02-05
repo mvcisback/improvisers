@@ -14,7 +14,7 @@ def test_game_graph_explicit_smoke():
         }
     )
 
-    assert set(game_graph.nodes()) == {1, 2, 3, 4, 5, 6}
+    assert set(RCI.dfs_nodes(game_graph)) == {1, 2, 3, 4, 5, 6}
 
     assert game_graph.label(1) == 'p1'
     assert game_graph.label(2) == 'p1'
@@ -38,7 +38,7 @@ def test_game_graph_implicit_smoke():
         horizon=2,
     )
 
-    assert set(game_graph.nodes()) == {
+    assert set(RCI.dfs_nodes(game_graph)) == {
         (0, False),
         (1, False),
         (1, True),

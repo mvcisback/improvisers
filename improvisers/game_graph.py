@@ -34,9 +34,6 @@ class GameGraph(Protocol):
     def root(self) -> Node:
         ...
 
-    def nodes(self) -> Iterable[Node]:
-        ...
-
     def label(self, node: Node) -> NodeKinds:
         ...
 
@@ -63,7 +60,7 @@ def validate_game_graph(game_graph: GameGraph) -> None:
     2. Only terminal nodes should have rewards (and vice versa).
     3. Environment moves should be stochastic.
     """
-    nodes = game_graph.nodes()
+    nodes = dfs_nodes(game_graph)
     graph = {n: game_graph.moves(n) for n in nodes}
 
     for node in toposort(graph):
