@@ -17,7 +17,7 @@ TimedNode = Tuple[int, Node]
 
 
 class Dynamics(Protocol):
-    init: Node
+    start: Node
 
     def player(self, node: Node) -> NodeKinds:
         ...
@@ -47,7 +47,7 @@ class ImplicitGameGraph:
 
     @property
     def root(self) -> TimedNode:
-        return (0, self.dyn.init)
+        return (0, self.dyn.start)
 
     def episode_ended(self, timed_node: Node) -> bool:
         time, node = cast(TimedNode, timed_node)

@@ -34,7 +34,7 @@ def test_game_graph_implicit_smoke():
 
     @dataclass
     class Dynamics:
-        init: bool = False
+        start: bool = False
 
         def player(self, _):
             return 'p1'
