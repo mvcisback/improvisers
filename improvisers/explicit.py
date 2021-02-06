@@ -8,7 +8,8 @@ from typing import Dict, Literal, Iterable, Set, Tuple, Union, Optional
 import attr
 import numpy as np
 
-from improvisers.game_graph import Node, NodeKinds, validate_game_graph
+from improvisers.game_graph import Node, NodeKinds, Distribution
+from improvisers.game_graph import validate_game_graph
 
 
 NodeKinds2 = Union[Literal['p1'], Literal['p2'], Literal['env'], bool]
@@ -17,7 +18,7 @@ Graph = Dict[Node, Tuple[NodeKinds2, ConcreteActions]]
 
 
 @attr.s(frozen=True, auto_attribs=True, eq=False)
-class ExplicitDist:
+class ExplicitDist(Distribution):
     data: Dict[Node, float] = attr.ib(factory=dict)
 
     @property
