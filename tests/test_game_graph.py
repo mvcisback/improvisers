@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import improvisers as RCI
 
 
@@ -29,12 +31,23 @@ def test_game_graph_explicit_smoke():
 
 
 def test_game_graph_implicit_smoke():
+
+    @dataclass
+    class Dynamics:
+        init: bool = False
+
+        def player(self, _):
+            return 'p1'
+
+        def actions(self, _):
+            return [False, True]
+
+        def transition(self, node: bool, action: bool) -> bool:
+            return node ^ action
+
     game_graph = RCI.ImplicitGameGraph(
-        root=False,
-        player=lambda _: 'p1',
-        accepting=lambda i: i,
-        transition=lambda n, c: bool(n ^ c),
-        actions=lambda _: [False, True],
+        dyn=Dynamics(),
+        accepting=lambda x: x,
         horizon=2,
     )
 
