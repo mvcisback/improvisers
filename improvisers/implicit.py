@@ -1,4 +1,4 @@
-"""Implicit Timed GameGraph implementation based on callables."""
+"""Implicit Timed GameGraph implementation based on Dynamics protocol."""
 
 from __future__ import annotations
 
@@ -76,4 +76,4 @@ class ImplicitGameGraph:
         yield from dfs_nodes(self)
 
 
-__all__ = ['ImplicitGameGraph']
+__all__ = ['ImplicitGameGraph', 'Dynamics']
