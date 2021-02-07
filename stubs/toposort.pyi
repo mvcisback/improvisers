@@ -1,9 +1,9 @@
-from typing import Hashable, Mapping, Set, Iterable
+from typing import Hashable, Mapping, Set, Iterable, TypeVar
 
 
-Node = Hashable
+Node = TypeVar('Node')
 AdjacencyMap = Mapping[Node, Set[Node]]
 
 
-def toposort_flatten(data: AdjacencyMap) -> Iterable[Node]:
+def toposort_flatten(data: AdjacencyMap[Node]) -> Iterable[Node]:
     ...

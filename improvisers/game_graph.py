@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from typing import Hashable, Literal, Protocol
-from typing import Optional, Set, Union, Iterable
+from typing import Optional, Set, Union, Iterable, runtime_checkable
 
 
 from toposort import toposort_flatten as toposort
 
 
+@runtime_checkable
 class Distribution(Protocol):
     """Protocol for distribution over nodes."""
     def sample(self, seed: Optional[int] = None) -> Node:

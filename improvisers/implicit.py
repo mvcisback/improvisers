@@ -12,7 +12,7 @@ from improvisers.game_graph import dfs_nodes, validate_game_graph
 
 
 Action = Any
-Actions = Iterable[Action]
+Actions = Set[Action]
 TimedNode = Tuple[int, Node]
 
 
@@ -49,9 +49,28 @@ class ImplicitGameGraph:
     def root(self) -> TimedNode:
         return (0, self.dyn.start)
 
+    def actions(self, node: Node) -> Actions:
+        player = self.dyn.player(node)
+
+        if isinstance(player, bool):
+            return set()
+        elif player == 'p1' or player == 'p2':
+            return self.dyn.actions(node)
+
+        actions = set(player.support())
+        assert actions, "Distributions must have non-empty support!"
+        return actions
+
     def episode_ended(self, timed_node: Node) -> bool:
         time, node = cast(TimedNode, timed_node)
-        if isinstance(self.dyn.player(node), bool):
+
+        if(self.horizon is not None) and (time >= self.horizon):
+            return True
+
+        player = self.dyn.player(node)
+        actions = self.actions(node)
+
+        if isinstance(player, bool) or not actions:
             return True
         return (self.horizon is not None) and (time >= self.horizon)
 
@@ -60,6 +79,7 @@ class ImplicitGameGraph:
         player = self.dyn.player(node)
         if isinstance(player, bool) or not self.episode_ended(timed_node):
             return player
+
         return self.accepting(node)
 
     def moves(self, timed_node: Node) -> Set[Node]:
@@ -68,7 +88,7 @@ class ImplicitGameGraph:
             return moves
         time, node = cast(TimedNode, timed_node)
 
-        for a in self.dyn.actions(node):
+        for a in self.actions(node):
             moves.add((time + 1, self.dyn.transition(node, a)))
         return moves
 
