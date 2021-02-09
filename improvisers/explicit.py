@@ -29,7 +29,7 @@ class ExplicitDist(Distribution):
     def sample(self, seed: Optional[int] = None) -> Node:
         if seed is not None:
             random.seed(seed)
-        return random.choices(*zip(*self.data.items()))[0]  # type: ignore
+        return random.choices(*zip(*self.data.items()))[0]
 
     def prob(self, node: Node) -> float:
         return self.data.get(node, 0)

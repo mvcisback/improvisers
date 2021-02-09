@@ -42,8 +42,8 @@ def test_game_graph_implicit_smoke():
         def actions(self, _):
             return [False, True]
 
-        def transition(self, node: bool, action: bool) -> bool:
-            return node ^ action
+        def transition(self, node, action):
+            return RCI.ExplicitDist({node ^ action: 1})
 
     game_graph = RCI.ImplicitGameGraph(
         dyn=Dynamics(),
@@ -51,7 +51,7 @@ def test_game_graph_implicit_smoke():
         horizon=2,
     )
 
-    assert set(RCI.dfs_nodes(game_graph)) == {
+    assert set(RCI.dfs_nodes(game_graph)) >= {
         (0, False),
         (1, False),
         (1, True),

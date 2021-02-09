@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Hashable, Literal, Protocol
+from typing import Any, Literal, Protocol
 from typing import Optional, Set, Union, Iterable, runtime_checkable
 
 
@@ -64,7 +64,7 @@ def validate_game_graph(game_graph: GameGraph) -> None:
     nodes = dfs_nodes(game_graph)
     graph = {n: game_graph.moves(n) for n in nodes}
 
-    for node in toposort(graph):
+    for node in toposort(graph, sort=False):
         moves = game_graph.moves(node)
         label = game_graph.label(node)
 
@@ -72,8 +72,9 @@ def validate_game_graph(game_graph: GameGraph) -> None:
             raise ValueError('Terminals <-> label is a reward!')
 
 
-Node = Hashable
-NodeKinds = Union[Literal['p1'], Literal['p2'], Distribution, bool]
+Node = Any
+Player = Union[Literal['p1'], Literal['p2']]
+NodeKinds = Union[Player, Distribution, bool]
 
 
 __all__ = [
