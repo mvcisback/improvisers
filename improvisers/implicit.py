@@ -9,6 +9,7 @@ import attr
 
 from improvisers.game_graph import Node, NodeKinds, Player, Distribution
 from improvisers.game_graph import dfs_nodes, validate_game_graph
+from improvisers.explicit import ExplicitGameGraph, Graph
 
 
 Action = Any
@@ -62,15 +63,15 @@ class ImplicitGameGraph:
     """Create game graph from labeled dynamics."""
     dyn: Dynamics
     accepting: Callable[[Node], bool]
-    invalid: Optional[Callable[[Node], bool]] = None
     horizon: Optional[int] = None
     validate: bool = True
+    _invalid: Optional[Callable[[Node], bool]] = None
 
     def __attrs_post_init__(self) -> None:
         if not self.validate:
             return
         validate_game_graph(self)
-        if self.invalid is not None:
+        if self._invalid is not None:
             assert not any(self.invalid(node) for node in dfs_nodes(self))
 
     @property
@@ -98,9 +99,8 @@ class ImplicitGameGraph:
             return timed_node
 
         _, node = timed_node
-        player = self.dyn.player(node)
-        if isinstance(player, bool) or not self.episode_ended(timed_node):
-            return player
+        if not self.episode_ended(timed_node):
+            return self.dyn.player(node)
 
         return self.accepting(node)
 
@@ -112,7 +112,17 @@ class ImplicitGameGraph:
     def transition(self, timed_node: TimedNode, action: Action) -> TimedDist:
         assert isinstance(timed_node, tuple)
         time, node = timed_node
-        return TimedDist(time + 1, self.dyn.transition(node, action))
+        dist = TimedDist(time + 1, self.dyn.transition(node, action))
+
+        # Optimization. Remove singleton distributions.
+        for count, node2 in zip([1, 2], dist.support()):
+            pass  # count should increment to 1 or 2.
+        return dist if count > 1 else node2
+
+    def invalid(self, timed_node: TimedNode) -> bool:
+        if not isinstance(timed_node, tuple):
+            return False
+        return False
 
     def moves(self, timed_node: TimedNode) -> Set[TimedNode]:
         if self.episode_ended(timed_node):
@@ -125,6 +135,20 @@ class ImplicitGameGraph:
 
     def nodes(self) -> Iterable[Node]:
         yield from dfs_nodes(self)
+
+    def make_explicit(self) -> ExplicitGameGraph:
+        graph: Graph = {}
+        for node in dfs_nodes(self):
+            label = self.label(node)
+            if isinstance(label, bool):
+                graph[node] = (label, set())
+            elif label == 'p1' or label == 'p2':
+                graph[node] = (label, self.moves(node))
+            else:  # label is a distribution.
+                dist = {n: label.prob(n) for n in label.support()}
+                graph[node] = ('env', dist)
+
+        return ExplicitGameGraph(root=self.root, graph=graph)
 
 
 __all__ = ['ImplicitGameGraph', 'Dynamics']

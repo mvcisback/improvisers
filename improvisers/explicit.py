@@ -17,9 +17,13 @@ ConcreteActions = Union[Set[Node], Dict[Node, float]]
 Graph = Dict[Node, Tuple[NodeKinds2, ConcreteActions]]
 
 
-@attr.s(frozen=True, auto_attribs=True, eq=False)
+# HACK: Force hashing since data is not part of Distribution API.
+@attr.s(frozen=True, auto_attribs=True, hash=False)
 class ExplicitDist(Distribution):
-    data: Dict[Node, float] = attr.ib(factory=dict)
+    data: Dict[Node, float] = attr.ib(factory=dict, converter=dict)
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.data.items()))
 
     @property
     def entropy(self) -> float:
