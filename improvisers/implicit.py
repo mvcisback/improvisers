@@ -109,7 +109,7 @@ class ImplicitGameGraph:
         _, node = timed_node
         return self.dyn.actions(node)
 
-    def transition(self, timed_node: TimedNode, action: Action) -> TimedDist:
+    def transition(self, timed_node: TimedNode, action: Action) -> TimedNode:
         assert isinstance(timed_node, tuple)
         time, node = timed_node
         dist = TimedDist(time + 1, self.dyn.transition(node, action))
