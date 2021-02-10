@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 import improvisers as RCI
 
 
@@ -28,39 +26,3 @@ def test_game_graph_explicit_smoke():
     assert game_graph.label(6) is False
 
     assert game_graph.root == 1
-
-
-def test_game_graph_implicit_smoke():
-
-    @dataclass
-    class Dynamics:
-        start: bool = False
-
-        def player(self, _):
-            return 'p1'
-
-        def actions(self, _):
-            return [False, True]
-
-        def transition(self, node, action):
-            return RCI.ExplicitDist({node ^ action: 1})
-
-    game_graph = RCI.ImplicitGameGraph(
-        dyn=Dynamics(),
-        accepting=lambda x: x,
-        horizon=2,
-    )
-
-    assert set(RCI.dfs_nodes(game_graph)) >= {
-        (0, False),
-        (1, False),
-        (1, True),
-        (2, False),
-        (2, True),
-    }
-
-    assert game_graph.label((0, False)) == 'p1'
-    assert game_graph.label((1, False)) == 'p1'
-    assert game_graph.label((1, True)) == 'p1'
-    assert game_graph.label((2, False)) is False
-    assert game_graph.label((2, True)) is True
