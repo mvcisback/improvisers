@@ -276,7 +276,7 @@ toposort = ">=1.5,<2.0"
 
 [[package]]
 name = "py-aiger-bv"
-version = "4.5.2"
+version = "4.5.3"
 description = "A python library for manipulating sequential and-inverter gates."
 category = "dev"
 optional = false
@@ -341,7 +341,7 @@ py-aiger-discrete = ">=0.1.6,<0.2.0"
 
 [[package]]
 name = "py-aiger-ptltl"
-version = "3.0.1"
+version = "3.1.0"
 description = "Library for generating (p)ast (t)ense (l)inear (t)emporal (l)ogic monitors as aiger circuits."
 category = "dev"
 optional = false
@@ -349,6 +349,9 @@ python-versions = ">=3.7,<4.0"
 
 [package.dependencies]
 py-aiger = ">=6.0.0,<7.0.0"
+
+[package.extras]
+with_bv = ["py-aiger-bv (>=4.5.2,<5.0.0)"]
 
 [[package]]
 name = "pycodestyle"
@@ -524,7 +527,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "fa7321f40caf53963ae3f7e21fb427ea37ad2d017c95671d350a356bc3f2edf6"
+content-hash = "eaf2ce13a5821707a0fca3774807bf9b2ed8c54aea7f1ad5bd6f6110a9d64f3e"
 
 [metadata.files]
 atomicwrites = [
@@ -762,8 +765,8 @@ py-aiger = [
     {file = "py_aiger-6.1.13-py3-none-any.whl", hash = "sha256:4677b33b6707589404474498b03c1705bc013f4e5baddf53f1ed704d4eb7623d"},
 ]
 py-aiger-bv = [
-    {file = "py-aiger-bv-4.5.2.tar.gz", hash = "sha256:6ef31b9a55e4648cb9ef5891757d3bd7a97be5d11f0c7022464b9b13c46e390f"},
-    {file = "py_aiger_bv-4.5.2-py3-none-any.whl", hash = "sha256:6621110575aa53b9f6be5ab4cf6eec43b3fb8e075f86baf939564debc1507db5"},
+    {file = "py-aiger-bv-4.5.3.tar.gz", hash = "sha256:d409fcd9b51cdb38f8f473b62972df9de78ca13f56a8db68e75ea744409d4fb0"},
+    {file = "py_aiger_bv-4.5.3-py3-none-any.whl", hash = "sha256:ff1efa57db47289d8c7a6122d19bce7ccd24c2b7c0d6d487ae95475de74bca7f"},
 ]
 py-aiger-coins = [
     {file = "py-aiger-coins-3.3.0.tar.gz", hash = "sha256:f596b05640c376ee7abf50b3127eff45aaa38765892584428893bbd142058136"},
@@ -778,8 +781,8 @@ py-aiger-gridworld = [
     {file = "py_aiger_gridworld-0.4.0-py3-none-any.whl", hash = "sha256:abf105a412d2fc8365b1aecae50dc6aaba4020757f419fc8dd00fe1dc2cafaad"},
 ]
 py-aiger-ptltl = [
-    {file = "py-aiger-ptltl-3.0.1.tar.gz", hash = "sha256:fc5356ee2c184b6b9e3217ffe3bf69adc917f404ebef82a0948428bd3df34833"},
-    {file = "py_aiger_ptltl-3.0.1-py3-none-any.whl", hash = "sha256:2ddd3168be18ccfae91bbab33611d117bbf74f2c584c592a627ee1446bb70f17"},
+    {file = "py-aiger-ptltl-3.1.0.tar.gz", hash = "sha256:f1bbd5b7259e6e83020e07676ed22ccf71bb3b04ad9d5cb7bf231b76ef8bf1b8"},
+    {file = "py_aiger_ptltl-3.1.0-py3-none-any.whl", hash = "sha256:c146cfeb94d553f7ecba1924648cc3443ebdf848a812214115c28337b41160d6"},
 ]
 pycodestyle = [
     {file = "pycodestyle-2.6.0-py2.py3-none-any.whl", hash = "sha256:2295e7b2f6b5bd100585ebcb1f616591b652db8a741695b3d8f5d28bdc934367"},
