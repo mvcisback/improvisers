@@ -11,8 +11,14 @@ import aiger_bv as BV
 import aiger_discrete as D
 import aiger_gridworld as GW
 import attr
+import mdd as MDD
+import networkx as nx
 from aiger_discrete.mdd import to_mdd
 from blessings import Terminal
+from dd.cudd import BDD  # <---- Make sure CUDD backend available.
+from mdd.nx import to_nx
+
+from improvisers.explicit import ExplicitDist
 
 
 TERM = Terminal()
@@ -96,6 +102,7 @@ class GridState:
 
 def player_dynamics(suffix: str, dim: int, start: Tuple[int, int]):
     gw = GW.gridworld(dim, start=start, compressed_inputs=True)
+
     # Relabel i/o to be specific to player.
     gw = gw['i', {'a': f'a{suffix}'}]
     gw = gw['o', {'state': f'state{suffix}'}]
@@ -207,8 +214,8 @@ def p2_patrol_policy(dim):
     #turn_around = BV.uatom(1, '🗘')
     turn_around = BV.ite(
         BV.uatom(1, '🗘'),
-        BV.uatom(2, '🎲')[0],
-        BV.uatom(2, '🎲')[1],
+        BV.uatom(1, '🎲₁'),
+        BV.uatom(1, '🎲₂'),
     )
 
     update = BV.ite(
@@ -255,9 +262,136 @@ def onehot_gadget(output: str):
     )
 
 
+def monitor2mdd(monitor, horizon):
+    pred = monitor.unroll(horizon, only_last_outputs=True)
+    pred = pred >> onehot_gadget(f'guarantees##time_{horizon}')
+
+    order = []
+    for t in range(horizon):
+        for action in ['a₁', '🗘', '🎲₁', '🎲₂']:
+            order.append(f'{action}##time_{t}')
+    mdd = to_mdd(pred)
+    breakpoint()
+    return mdd
+
+
+def monitor2bdd(monitor, horizon):
+    # Convert to BDD.
+    pred = monitor.unroll(horizon, only_last_outputs=True) \
+                  .aigbv \
+                  .cone(f'guarantees##time_{horizon}')
+
+    imap = pred.imap
+    order = []
+    for t in range(horizon):
+        for action in ['a₁', '🗘', '🎲₁', '🎲₂']:
+            order.extend(imap[f'{action}##time_{t}'])
+
+    bdd, *_ = aiger_bdd.to_bdd(
+        pred, 
+        levels={n: i for i, n in enumerate(order)}, 
+        renamer=lambda _, x: x
+    )
+    return bdd
+
+
+def const_true(size, name):
+    expr = BV.uatom(1, 1)
+    expr = BVExpr(expr.aigbv | BV.sink(size, [name]))
+    return expr
+
+
+def monitor2bdd2mdd(monitor, horizon):
+    # Convert to BDD.
+
+    pred = monitor.unroll(horizon, only_last_outputs=True) \
+                  .aigbv \
+                  .cone(f'guarantees##time_{horizon}')
+
+    imap = pred.imap
+    order = []
+    for t in range(horizon):
+        for action in ['a₁', '🗘', '🎲₁', '🎲₂']:
+            order.extend(imap[f'{action}##time_{t}'])
+    order.append('sat##time_{horizon}')
+    
+    bdd, *_ = aiger_bdd.to_bdd(
+        pred, 
+        levels={n: i for i, n in enumerate(order)}, 
+        renamer=lambda _, x: x
+    )
+    # 1-hot-ify outputs 
+    bdd.bdd.add_var('sat[0]')
+    bdd.bdd.add_var('sat[1]')
+    bdd2 = bdd.implies(bdd.bdd.var('sat[1]')) & (~bdd).implies(bdd.bdd.var('sat[0]'))
+
+    # Create interface.
+    imap = monitor.imap
+    inputs = []
+
+    for t in range(horizon):
+        for name in ['a₁', '🗘', '🎲₁', '🎲₂']:
+            size = imap[name].size
+
+            if name in monitor.input_encodings:
+                enc = monitor.input_encodings[name]
+                encode, decode = enc.encode, enc.decode
+            else:
+                encode = decode = lambda x: x
+
+            inputs.append(MDD.Variable(
+                valid=const_true(size, f'{name}##time_{t}'),
+                encode=encode,
+                decode=decode,
+            ))
+    
+    output = MDD.Variable(
+        valid=const_true(2, 'sat'),
+        encode=lambda x: 1 << int(x),
+        decode=lambda x: bool((x >> 1) & 1),
+    )
+    io = MDD.Interface(inputs, output)
+    return MDD.DecisionDiagram(io, bdd2)
+
+
+@attr.s(frozen=True, auto_attribs=True)
+class DroneGameGraph:
+    graph: nx.DiGraph
+    root: int = 0
+
+    def moves(self, node):
+        return set(self.graph.neighbors(node))
+
+    def label(self, node):
+        name = self.graph.nodes[node]['label']
+
+        if name.startswith('a'):
+            return 'p1'
+        elif name.startswith('🗘'):
+            return 'p2'
+
+        # Is distribution node.
+        assert name.startswith('🎲')
+        bias = 0.3 if name.startswith('🎲₁') else 0.7
+        support = list(self.graph.neighbors(node))
+        assert len(support) <= 2
+        
+        if len(support) == 1:
+            return ExplicitDist({support[0]: 1})
+        hi, lo = support  # Guess that this is the order.
+
+        hi_guard = self.graph.edges[node, hi]['label']
+
+        flipped = hi_guard({name: 0})[0]
+        if flipped:  # Flip if guess was incorrect.
+            hi, lo = lo, hi
+
+        return ExplicitDist({lo: 1 - bias, hi: bias})
+    
+
 def main():
-    dim = 8
-    horizon = 20
+    dim = 5
+    horizon = 10
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -268,39 +402,37 @@ def main():
         'keep_output': True,
     })
 
-    spec = guarantees()
+    if True:
+        spec = guarantees()
 
-    monitor = BV.AIGBV.cone(workspace >> spec, 'guarantees')
+        monitor = BV.AIGBV.cone(workspace >> spec, 'guarantees')
+        # HACK: swap out aig for lazy aig for unrolling.
+        # This avoids unnecessary aiger compositions.
+        monitor_aigbv = attr.evolve(monitor.circ, aig=monitor.aigbv.aig.lazy_aig)
+        monitor = attr.evolve(monitor, circ=monitor_aigbv)
+        # End of Hack
 
-    # Hack swap out aig for lazy aig for unrolling.
-    monitor_aigbv = attr.evolve(monitor.circ, aig=monitor.aigbv.aig.lazy_aig)
-    monitor = attr.evolve(monitor, circ=monitor_aigbv)
-    # End of Hack
+        #mdd = monitor2mdd(monitor, horizon)
+        #breakpoint()
 
-    # Convert to BDD.
-    pred = monitor.unroll(horizon, only_last_outputs=True) \
-                  .aigbv \
-                  .cone(f'guarantees##time_{horizon}')
+        #bdd = monitor2bdd(monitor, horizon)
+        #print(bdd.dag_size)
+        mdd = monitor2bdd2mdd(monitor, horizon)
+        print('here')
+        graph = to_nx(mdd)
+        game = DroneGameGraph(graph)
+        breakpoint()
 
-    imap = pred.imap
-    order = []
-    for t in range(horizon):
-        for action in ['a₁', '🗘', '🎲']:
-            order.extend(imap[f'{action}##time_{t}'])
+        #print(bdd.dag_size)
+        return
 
-    bdd, *_ = aiger_bdd.to_bdd(
-        pred, 
-        levels={n: i for i, n in enumerate(order)}, 
-        renamer=lambda _, x: x
-    )
-    print(bdd.dag_size)
 
     sim = workspace.simulator()
     next(sim)
 
     with TERM.hidden_cursor():
         for i in range(10):
-            actions = {'a₁': '→', '🗘': 0, '🎲': 0}
+            actions = {'a₁': '→', '🗘': 0, '🎲₁': 0, '🎲₂': 0}
             output = sim.send(actions)[0]
 
             state = output['state']
