@@ -6,10 +6,12 @@ from functools import reduce
 from typing import Tuple
 
 import aiger_ptltl.ptltl as LTL
+import aiger_bdd
 import aiger_bv as BV
 import aiger_discrete as D
 import aiger_gridworld as GW
 import attr
+from aiger_discrete.mdd import to_mdd
 from blessings import Terminal
 
 
@@ -84,9 +86,9 @@ class GridState:
         buff = '\n'
 
         for row in range(self.dim-1, -1, -1):
-            buff += TERM.yellow(f'{row + 1} ')
+            buff += TERM.yellow(f'{row} ')
             buff += ' '.join(self._row(row)) + '\n'
-        cols = range(1, self.dim + 1)
+        cols = range(self.dim)
         buff += TERM.yellow('  ' + ' '.join(map(str, cols)) + '\n')
         return buff
 
@@ -195,17 +197,19 @@ def visit_all_goals_once():
 
 
 def guarantees():
-    return (dont_crash() & visit_all_goals()).with_output('guarantees')
-
-# ---------------------- Shield Synth ------------------------ #
-
+    return (dont_crash() & visit_all_goals()).with_output('guarantees').aigbv
 
 # ---------------------- Patrol Policy ----------------------- #
 
 def p2_patrol_policy(dim):
     p2_in_goal = BV.uatom(1, 'p2_in_goal')
     action = BV.uatom(2, 'a₂')
-    turn_around = BV.uatom(1, '🗘')
+    #turn_around = BV.uatom(1, '🗘')
+    turn_around = BV.ite(
+        BV.uatom(1, '🗘'),
+        BV.uatom(2, '🎲')[0],
+        BV.uatom(2, '🎲')[1],
+    )
 
     update = BV.ite(
         p2_in_goal,
@@ -217,33 +221,86 @@ def p2_patrol_policy(dim):
         'input': 'a₂',
         'output': 'a₂',
         'keep_output': True,
-        'init': (1, 1),
+        'init': (True, True),
     })
-    
+
+# ---------------------- Shield Synth ------------------------ #
+
+
+# TODO:
+# 1. compose dynamics and hard constraint monitor
+# 2. unroll and build MDD.
+# 3. On underlying BDD, apply exist on output variable.
+# 3. Apply universal quantifications for all non-p1 nodes.
+# 4. Convert into predicate in form of a combinatorial AIG.
+# 5. Condition workspace on this predicate.
 
 # ------------------------------------------------------------ #
 
 
+def onehot_gadget(output: str):
+    sat = BV.uatom(1, output)
+    false, true = BV.uatom(2, 0b01), BV.uatom(2, 0b10)
+    expr = BV.ite(sat, true, false) \
+             .with_output('sat')
+    
+    encoder = D.Encoding(
+        encode=lambda x: 1 << int(x),
+        decode=lambda x: bool((x >> 1) & 1),
+    )
+
+    return D.from_aigbv(
+        expr.aigbv,
+        output_encodings={'sat': encoder},
+    )
+
+
 def main():
-    dim = 7
+    dim = 8
+    horizon = 20
 
-    dyn = drone_dynamics(dim)
-    sensor = feature_sensor(dim)
-    p2_ctrl = p2_patrol_policy(dim)
-
-    dyn2 = (dyn << p2_ctrl) >> sensor
-    dyn2 = dyn2.loopback({
+    workspace = drone_dynamics(dim)      # Add dynamics
+    workspace >>= feature_sensor(dim)    # Add features
+    workspace <<= p2_patrol_policy(dim)  # Constrain p2.
+    workspace = workspace.loopback({
         'input': 'p2_in_goal',
         'output': 'p2_in_goal',
         'keep_output': True,
     })
 
-    sim = dyn2.simulator()
+    spec = guarantees()
+
+    monitor = BV.AIGBV.cone(workspace >> spec, 'guarantees')
+
+    # Hack swap out aig for lazy aig for unrolling.
+    monitor_aigbv = attr.evolve(monitor.circ, aig=monitor.aigbv.aig.lazy_aig)
+    monitor = attr.evolve(monitor, circ=monitor_aigbv)
+    # End of Hack
+
+    # Convert to BDD.
+    pred = monitor.unroll(horizon, only_last_outputs=True) \
+                  .aigbv \
+                  .cone(f'guarantees##time_{horizon}')
+
+    imap = pred.imap
+    order = []
+    for t in range(horizon):
+        for action in ['a₁', '🗘', '🎲']:
+            order.extend(imap[f'{action}##time_{t}'])
+
+    bdd, *_ = aiger_bdd.to_bdd(
+        pred, 
+        levels={n: i for i, n in enumerate(order)}, 
+        renamer=lambda _, x: x
+    )
+    print(bdd.dag_size)
+
+    sim = workspace.simulator()
     next(sim)
 
     with TERM.hidden_cursor():
         for i in range(10):
-            actions = {'a₁': '→', '🗘': 0}
+            actions = {'a₁': '→', '🗘': 0, '🎲': 0}
             output = sim.send(actions)[0]
 
             state = output['state']
