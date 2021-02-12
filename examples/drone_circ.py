@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import time
+import random
 from itertools import product
 from functools import reduce
 from typing import Tuple
 
+import aiger
 import aiger_ptltl.ptltl as LTL
 import aiger_bdd
 import aiger_bv as BV
@@ -19,6 +21,7 @@ from dd.cudd import BDD  # <---- Make sure CUDD backend available.
 from mdd.nx import to_nx
 
 from improvisers.explicit import ExplicitDist
+from improvisers.policy import solve
 
 
 TERM = Terminal()
@@ -166,9 +169,27 @@ def p2_in_interior(dim: int):
     return test.with_output('p2_in_interior').aigbv
 
 
+def swapped(dim):
+    curr = BV.uatom(4*dim, 'state').with_output('state')
+    prev = BV.uatom(4*dim, 'prev').with_output('prev')
+
+    s1_curr, s2_curr = curr[:2 * dim], curr[2 * dim:]
+    s1_prev, s2_prev = prev[:2 * dim], prev[2 * dim:]
+    test = (s1_curr == s2_prev) & (s2_curr == s1_prev)
+    test = test.with_output('swapped')
+    return (test.aigbv | curr.aigbv).loopback({
+        'input': 'prev',
+        'output': 'state',
+        'keep_output': False,
+        'init': 4*dim*(True,)
+    })
+
+
 def feature_sensor(dim):
     state = BV.uatom(4*dim, 'state').with_output('state')
+
     return state.aigbv \
+        |  swapped(dim) \
         |  crashed(dim) \
         |  p2_in_goal(dim) \
         |  p2_in_interior(dim) \
@@ -179,7 +200,7 @@ def feature_sensor(dim):
 
 def dont_crash():
     # Circuit monitoring crashed predicate never occurs.
-    test = LTL.parse('H ~crashed')
+    test = LTL.parse('H ~crashed') & LTL.parse('H ~swapped')
     return BVExpr(test.aigbv)
 
 
@@ -188,8 +209,9 @@ def visit_all_goals():
 
     # Take conjunction and convert to BitVector expression.
     test = reduce(lambda x, y: x & y, tests)
-    return BVExpr(test.aigbv).bundle_inputs('goals₁') \
+    test = BVExpr(test.aigbv).bundle_inputs('goals₁') \
                              .with_output('visit_all_goals')
+    return test
 
 
 def visit_all_goals_once():
@@ -313,7 +335,7 @@ def monitor2bdd2mdd(monitor, horizon):
     for t in range(horizon):
         for action in ['a₁', '🗘', '🎲₁', '🎲₂']:
             order.extend(imap[f'{action}##time_{t}'])
-    order.append('sat##time_{horizon}')
+    order.append(f'sat##time_{horizon}')
     
     bdd, *_ = aiger_bdd.to_bdd(
         pred, 
@@ -364,7 +386,8 @@ class DroneGameGraph:
 
     def label(self, node):
         name = self.graph.nodes[node]['label']
-
+        if isinstance(name, bool):
+            return name
         if name.startswith('a'):
             return 'p1'
         elif name.startswith('🗘'):
@@ -382,16 +405,68 @@ class DroneGameGraph:
 
         hi_guard = self.graph.edges[node, hi]['label']
 
-        flipped = hi_guard({name: 0})[0]
+        flipped = 0 in hi_guard
         if flipped:  # Flip if guess was incorrect.
             hi, lo = lo, hi
 
         return ExplicitDist({lo: 1 - bias, hi: bias})
+
+
+def lifted_policy(actor, horizon):
+    graph = actor.game.graph
+    policy = actor.improvise()
+    observation = None
+    int2action = GW.dynamics.ACTIONS_C.inv
+    state, logical_time = 0, 0
+    p2_path = []
+    for t in range(horizon):
+        for player in ['p1','p2', 'env']:
+            name = graph.nodes[state]['label']
+            if isinstance(name, bool):
+                breakpoint()
+            else:
+                time = int(name.split('##time_')[1])
+                label = actor.game.label(state)
+
+            if time == t:
+                if label == 'p1' == player: # Select a p1 move/action and next state.
+                    if t > 0:
+                        observation = (state, p2_path)
+
+                    move, state_dist = policy.send(observation)
+                    guard = graph.edges[state, move]['label']
+                    p1_actions = list(guard)
+                    actions = yield random.choice(p1_actions)
+
+                    # TODO: HACK. Assume fix env policy for now.
+                    assert actions['🗘'] == 0
+                    assert actions['🎲₁'] == 0
+                    assert actions['🎲₂'] == 0
+                    
+                    prev_state = state
+                    state = move
+                    p2_path = []
+                    print(t, time, actions['a₁'])
+                else:
+                    # find consistent move with actions (assumed 0)
+                    if label == 'p2':
+                        p2_path.append(state)
+                    for move in graph.neighbors(state):
+                        guard = graph.edges[state, move]['label']
+                        if 0 in guard:
+                            break
+                    prev_state = state
+                    state = move
+                    
+            elif label == 'p1' == player:
+                assert time > t
+                actions = yield random.choice(list(int2action.inv))
+                print(t, time, actions['a₁'])
     
 
 def main():
     dim = 5
-    horizon = 10
+    horizon = 11
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -416,30 +491,38 @@ def main():
         #breakpoint()
 
         #bdd = monitor2bdd(monitor, horizon)
-        #print(bdd.dag_size)
+        print('building BDD')
         mdd = monitor2bdd2mdd(monitor, horizon)
-        print('here')
-        graph = to_nx(mdd)
+        print(mdd.bdd.dag_size)
+        print('building converting into game graph')
+        graph = to_nx(mdd, symbolic_edges=False)
+        print(len(graph))
+
+        print('solving game with psat = 0.8')
         game = DroneGameGraph(graph)
-        breakpoint()
+        actor = solve(game, psat=0.8)
 
-        #print(bdd.dag_size)
-        return
 
+    policy = lifted_policy(actor, horizon)
 
     sim = workspace.simulator()
     next(sim)
+    p1_action = next(policy)
 
     with TERM.hidden_cursor():
-        for i in range(10):
-            actions = {'a₁': '→', '🗘': 0, '🎲₁': 0, '🎲₂': 0}
+        for i in range(horizon):
+            actions = {'a₁': p1_action, '🗘': 0, '🎲₁': 0, '🎲₂': 0}
             output = sim.send(actions)[0]
 
             state = output['state']
+
+
             print(f"{TERM.clear}{GridState(dim, state).board}")
             del output['state']
             print(output)
-            time.sleep(0.4)
+            print(f'time={i}')
+            time.sleep(1)
+            p1_action = policy.send(actions)
 
 
 if __name__ == '__main__':
