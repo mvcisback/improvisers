@@ -200,7 +200,8 @@ def feature_sensor(dim):
 
 def dont_crash():
     # Circuit monitoring crashed predicate never occurs.
-    test = LTL.parse('H ~crashed') & LTL.parse('H ~swapped')
+    test = LTL.parse('H ~(crashed | swapped)')
+    #test = LTL.parse('H ~crashed')
     return BVExpr(test.aigbv)
 
 
@@ -242,7 +243,8 @@ def p2_patrol_policy(dim):
 
     update = BV.ite(
         p2_in_goal,
-        BV.ite(turn_around, action + 2, action + 1),
+        #BV.ite(turn_around, action + 2, action + 1),
+        BV.ite(turn_around, action + 1, action + 1),
         action,
     ).with_output('a₂').aigbv
 
@@ -423,7 +425,8 @@ def lifted_policy(actor, horizon):
         for player in ['p1','p2', 'env']:
             name = graph.nodes[state]['label']
             if isinstance(name, bool):
-                breakpoint()
+                label = player
+                time = horizon
             else:
                 time = int(name.split('##time_')[1])
                 label = actor.game.label(state)
@@ -465,8 +468,8 @@ def lifted_policy(actor, horizon):
     
 
 def main():
-    dim = 5
-    horizon = 11
+    dim = 7
+    horizon = 15
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -502,27 +505,27 @@ def main():
         game = DroneGameGraph(graph)
         actor = solve(game, psat=0.8)
 
+    while True:
+        input('run?')
+        policy = lifted_policy(actor, horizon)
+        sim = workspace.simulator()
+        next(sim)
 
-    policy = lifted_policy(actor, horizon)
+        actions = None
+        with TERM.hidden_cursor():
+            for i in range(horizon):
+                p1_action = policy.send(actions)
+                actions = {'a₁': p1_action, '🗘': 0, '🎲₁': 0, '🎲₂': 0}
+                output = sim.send(actions)[0]
 
-    sim = workspace.simulator()
-    next(sim)
-    p1_action = next(policy)
+                state = output['state']
 
-    with TERM.hidden_cursor():
-        for i in range(horizon):
-            actions = {'a₁': p1_action, '🗘': 0, '🎲₁': 0, '🎲₂': 0}
-            output = sim.send(actions)[0]
-
-            state = output['state']
-
-
-            print(f"{TERM.clear}{GridState(dim, state).board}")
-            del output['state']
-            print(output)
-            print(f'time={i}')
-            time.sleep(1)
-            p1_action = policy.send(actions)
+                print(f"{TERM.clear}{GridState(dim, state).board}")
+                del output['state']
+                print(output)
+                print(f'time={i}')
+                time.sleep(1)
+                
 
 
 if __name__ == '__main__':
