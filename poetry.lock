@@ -172,7 +172,7 @@ pyflakes = ">=2.2.0,<2.3.0"
 name = "funcy"
 version = "1.15"
 description = "A fancy and practical functional tools"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -188,13 +188,26 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 name = "lazytree"
 version = "0.3.2"
 description = "Python library for manipulating infinite trees."
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.6,<4.0"
 
 [package.dependencies]
 attrs = ">=20.0.0,<21.0.0"
 funcy = ">=1.12,<2.0"
+
+[[package]]
+name = "lenses"
+version = "1.1.0"
+description = "A lens library for python"
+category = "main"
+optional = false
+python-versions = ">=3.5, <4"
+
+[package.extras]
+docs = ["sphinx"]
+optional = ["pyrsistent"]
+tests = ["pyrsistent", "pytest", "pytest-sugar", "coverage", "pytest-coverage", "hypothesis", "mypy"]
 
 [[package]]
 name = "mako"
@@ -254,6 +267,21 @@ networkx = {version = ">=2.5,<3.0", extras = ["nx"]}
 py-aiger = ">=6.1.1,<7.0.0"
 py-aiger-bdd = ">=3.0.0,<4.0.0"
 py-aiger-bv = ">=4.3.0,<5.0.0"
+
+[[package]]
+name = "monotone-bipartition"
+version = "0.3.0"
+description = "Compute Monotone Threshold Surfaces and compute distances between surfaces."
+category = "main"
+optional = false
+python-versions = ">=3.8,<4.0"
+
+[package.dependencies]
+attrs = ">=20,<21"
+funcy = ">=1.14,<2.0"
+lazytree = ">=0.3.1,<0.4.0"
+lenses = ">=1.0.0,<2.0.0"
+numpy = ">=1.19.1,<2.0.0"
 
 [[package]]
 name = "more-itertools"
@@ -687,7 +715,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "2e1a778bb90fee319d0bac2c43e48806ea4bd1669d7234a554fc1c6dae4e0beb"
+content-hash = "2ae29a3d91d90d0955ce6a9d0c9c9bc0788d61dc69e2e63ef441fa9cce95989f"
 
 [metadata.files]
 astutils = [
@@ -810,6 +838,10 @@ lazytree = [
     {file = "lazytree-0.3.2-py3-none-any.whl", hash = "sha256:dc11850027ab2d4efa35210f6dd34837a1baf202578ae278e4d1a90f657fb8e4"},
     {file = "lazytree-0.3.2.tar.gz", hash = "sha256:7a035efb5fb61d9209375e594780c1039af1feda02118f7fcbd74fdf6e4321da"},
 ]
+lenses = [
+    {file = "lenses-1.1.0-py3-none-any.whl", hash = "sha256:6eea77b07f1aab07fe8a4645ea21945f223925e56e1ec4d4e52919d22bfd359a"},
+    {file = "lenses-1.1.0.tar.gz", hash = "sha256:c905833f892dcef45de4411a43f1ff30937748157b6ab5181fca063bb095ce81"},
+]
 mako = [
     {file = "Mako-1.1.4.tar.gz", hash = "sha256:17831f0b7087c313c0ffae2bcbbd3c1d5ba9eeac9c38f2eb7b50e8c99fe9d5ab"},
 ]
@@ -878,6 +910,10 @@ mccabe = [
 mdd = [
     {file = "mdd-0.3.5-py3-none-any.whl", hash = "sha256:84347f0c4cb538b74e473c27d727abf9829ed1ae63fb306d5c70c228cb2e99ac"},
     {file = "mdd-0.3.5.tar.gz", hash = "sha256:9bbc6081900c6f1241944bc630ff3fd72cd723345b88db44af373741bcdc7952"},
+]
+monotone-bipartition = [
+    {file = "monotone-bipartition-0.3.0.tar.gz", hash = "sha256:7fa2eb466382d56001db9d60c0676924493bf3c837edde229ec1adb29cfa07d4"},
+    {file = "monotone_bipartition-0.3.0-py3-none-any.whl", hash = "sha256:a775d968239d9672cc06da58e9813c4bd040c43eaad71cb9116f6626b0a5cd0b"},
 ]
 more-itertools = [
     {file = "more-itertools-8.7.0.tar.gz", hash = "sha256:c5d6da9ca3ff65220c3bfd2a8db06d698f05d4d2b9be57e1deb2be5a45019713"},

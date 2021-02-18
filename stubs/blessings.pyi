@@ -1,0 +1,23 @@
+from typing import Any
+
+class Terminal:
+    def clear(self) -> str:
+        ...
+
+    def white(self, data: str) -> str:
+        ...
+
+    def yellow(self, data: str) -> str:
+        ...
+
+    def red(self, data: str) -> str:
+        ...
+
+    def blue(self, data: str) -> str:
+        ...
+
+    def green(self, data: str) -> str:
+        ...
+
+    def hidden_cursor(self) -> Any:
+        ...
