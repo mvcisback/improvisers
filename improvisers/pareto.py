@@ -65,7 +65,16 @@ class Region:
 
     @property
     def size(self) -> float:
-        return self.left.win_prob - self.right.win_prob
+        return self.right.win_prob - self.left.win_prob
+
+    def subdivide(self, middle: Point) -> Tuple[Region, Region]:
+        return Region(self.left, middle), Region(middle, self.right)
+
+    @property
+    def avg_coeff(self) -> float:
+        left, right = self.left.rationality, self.right.rationality
+        right = min(right, 2 * left + 3)  # Doubling trick for infinite coeff.
+        return left + (right - left) / 2  # Avoid large floats.
 
 
 Points = Sequence[Point]
@@ -90,9 +99,29 @@ class Pareto:
     def win_prob(self, entropy: float) -> Interval:
         """Look up win_prob by entropy."""
         lower = self[entropy].win_prob
-        return Interval(lower, lower + self.margin)
+        upper = min(lower + self.margin, self.max_win_prob)  # Clipped error.
+        return Interval(lower, upper)
+
+    @property
+    def max_win_prob(self):
+        return self.points[0].win_prob
+
+    @property
+    def max_entropy(self):
+        return self.points[-1].entropy
 
     @staticmethod
     def build(find_point: FindPoint, tol: float, prev_margin: float) -> Pareto:
-        queue = [Region(find_point(0), find_point(oo))]
-        raise NotImplementedError
+        from heapq import heappop as pop, heappush as push
+
+        root = Region(find_point(0), find_point(oo))
+
+        queue = [(-root.size, root)]   # Priority queue in region sizes.
+        while queue[0][1].size > tol:  # Get smallest region and test tol.
+            _, region = pop(queue)
+            kids = region.subdivide(find_point(region.avg_coeff))
+            queue.extend([(k.size, k) for k in kids])
+
+        # Convert regions to spanned points and then lift to Pareto approx.
+        points = [root.left] + [r.right for _, r in queue]
+        return Pareto(points=points, margin=tol + prev_margin)  # type: ignore
