@@ -214,7 +214,7 @@ class TabularCritic:
     def entropy(self, node_dist: DistLike, rationality: float) -> float:
         if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
             dist = node_dist
-            entropy = dist.entropy
+            entropy = 0 # monotone_bipartition. dist.entropy
             # Contribution from children. H(A[t+1:T] || S[t+1: T], S[:t]).
             for node in dist.support():
                 entropy += dist.prob(node) * self.entropy(node, rationality)
@@ -226,7 +226,11 @@ class TabularCritic:
             return 0.0  # Terminal node has no entropy.
 
         node_dist2 = self.move_dist(node, rationality)
-        return self.entropy(node_dist2, rationality)
+        entropy = self.entropy(node_dist2, rationality)
+
+        if label == 'p1':
+            entropy += node_dist2.entropy
+        return entropy
 
     def move_dist(self, state: Node, rationality: float) -> Distribution:
         label = self.game.label(state)
