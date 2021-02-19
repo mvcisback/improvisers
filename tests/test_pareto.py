@@ -1,4 +1,4 @@
-from improvisers.pareto import Point, Interval, ParetoCurve
+from improvisers.pareto import Interval, Pareto, Point
 
 
 def test_interval():
@@ -19,31 +19,23 @@ def test_interval():
     assert i1.size == 1
 
 
-def test_point():
-    i1 = Interval(0.1, 1)
-    p1 = Point(0.2, 0.3, i1)
-    p2 = Point(0.2, 0, i1*2)
-    p3 = Point(2, 0.2, i1*3)
+def test_curve1():
+    p1 = Point(entropy=0.1, rationality=10, win_prob=0.8)
+    p2 = Point(entropy=3, rationality=2, win_prob=0.1)
+    p3 = Point(entropy=0.3, rationality=8, win_prob=0.6)
 
-    assert p1 == p2
-    assert p3 > p1
-    assert p3 > p2
-    assert p3 > 1
+    curve = Pareto(
+        points=[p1, p2, p3],
+        margin=1e-2,
+    )
 
+    assert curve.rationality(0.1) == 10
+    assert curve.rationality(0.11) == 8
+    assert curve.rationality(0.3) == 8
+    assert curve.rationality(1) == 2
+    assert curve.rationality(3) == 2
 
-def test_curve():
-    i1 = Interval(0.1, 1)
-    p1 = Point(0.2, 0.3, i1*2)
-    p2 = Point(0.1, 0, i1)
-    p3 = Point(2, 3, i1*3)
-
-    curve = ParetoCurve([p1, p2, p3])
-    assert curve.rationality(0.1) == 0
-    assert curve.rationality(0.11) == 0.3
-    assert curve.rationality(0.2) == 0.3
-    assert curve.rationality(2) == 3
-
-    assert curve.win_prob(0.1) == i1
-    assert curve.win_prob(0.11) == i1 * 2
-    assert curve.win_prob(0.2) == i1 * 2
-    assert curve.win_prob(2) == i1 * 3
+    assert curve.win_prob(0.1) == Interval(0.8, 0.8 + 1e-2)
+    assert curve.win_prob(0.11) == Interval(0.6, 0.6 + 1e-2)
+    assert curve.win_prob(0.3) == Interval(0.6, 0.6 + 1e-2)
+    assert curve.win_prob(1) == Interval(0.1, 0.1 + 1e-2)

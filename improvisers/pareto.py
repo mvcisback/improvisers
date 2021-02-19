@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from bisect import bisect_left
 from functools import total_ordering
-from typing import Any, Sequence, Tuple, Union
+from typing import Any, Callable, Sequence, Tuple, Union, Mapping, NamedTuple
 
 import attr
+
+
+oo = float('inf')
 
 
 @attr.s(auto_attribs=True, frozen=True, auto_detect=True)
 class Interval:
     low: float
-    high: float    
+    high: float
 
     def __attrs_post_init__(self) -> None:
         assert self.low <= self.high
@@ -43,37 +46,42 @@ class Interval:
         return self.high - self.low
 
 
-@attr.s(auto_attribs=True, frozen=True, auto_detect=True)
-@total_ordering
-class Point:
+class Point(NamedTuple):
     entropy: float
     rationality: float
-    win_prob: Interval
+    win_prob: float
 
-    def __hash__(self) -> int:
-        return hash(self.entropy)
 
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, Point):
-            return False
-        entropy = other.entropy if isinstance(other, Point) else other
-        return self.entropy == entropy
+@attr.s(auto_detect=True, auto_attribs=True, frozen=True)
+class Region:
+    left: Point   # min rationality point.
+    right: Point  # max rationality point.
 
-    def __lt__(self, other: Union[Point, float]) -> bool:
-        entropy = other.entropy if isinstance(other, Point) else other
-        return self.entropy < entropy
+    def __attrs_post_init__(self) -> None:
+        left, right = self.left, self.right
+        assert left.rationality < right.rationality
+        assert left.win_prob < right.win_prob
+        assert left.entropy > right.entropy
+
+    @property
+    def size(self) -> float:
+        return self.left.win_prob - self.right.win_prob
+
+
+Points = Sequence[Point]
+FindPoint = Callable[[float], Point]
 
 
 @attr.s(auto_attribs=True, frozen=True)
-class ParetoCurve:
-    sorted_points: Sequence[Point] = attr.ib(converter=sorted)
+class Pareto:
+    margin: float
+    points: Sequence[Point] = attr.ib(converter=sorted)
 
     def __getitem__(self, entropy: float) -> Point:
         """Look up point by entropy."""
-        index = bisect_left(self.sorted_points, entropy)
-        point = self.sorted_points[index]
-        assert entropy <= point.entropy
-        return point
+        point = (entropy, -oo, -oo)  # Lift to partially defined point.
+        index = bisect_left(self.points, point)
+        return self.points[index]
 
     def rationality(self, entropy: float) -> float:
         """Look up rationality by entropy."""
@@ -81,13 +89,10 @@ class ParetoCurve:
 
     def win_prob(self, entropy: float) -> Interval:
         """Look up win_prob by entropy."""
-        return self[entropy].win_prob
+        lower = self[entropy].win_prob
+        return Interval(lower, lower + self.margin)
 
-
-@attr.s(auto_attribs=True, frozen=True)
-class Region:
-    left: Point
-    right: Point
-
-    def __contains__(self, entropy: float) -> bool:
-        ...
+    @staticmethod
+    def build(find_point: FindPoint, tol: float, prev_margin: float) -> Pareto:
+        queue = [Region(find_point(0), find_point(oo))]
+        raise NotImplementedError

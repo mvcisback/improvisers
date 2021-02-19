@@ -47,7 +47,7 @@ dfa = ">=2.0.0,<3.0.0"
 name = "bidict"
 version = "0.21.2"
 description = "The bidirectional mapping library for Python."
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.6"
 
@@ -715,7 +715,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "2ae29a3d91d90d0955ce6a9d0c9c9bc0788d61dc69e2e63ef441fa9cce95989f"
+content-hash = "4f37bd16a061e5921886bbfdd832b514d2f7cdea56ab9bc5032cb30459a48df3"
 
 [metadata.files]
 astutils = [
