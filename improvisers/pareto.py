@@ -135,8 +135,11 @@ class Pareto:
 
     def win_prob(self, entropy: float) -> Interval:
         """Look up win_prob by entropy."""
-        lower = self[entropy].win_prob
-        upper = min(lower + self.margin, self.max_win_prob)  # Clipped error.
+        point = self[entropy]
+        lower = point.win_prob
+        upper = point.right.win_prob + self.margin
+        upper = min(upper, self.max_win_prob)  # Clipped error.
+        lower = min(upper, lower)              # Numerical error clip.
         return Interval(lower, upper)
 
     @property

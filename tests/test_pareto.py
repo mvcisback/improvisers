@@ -37,16 +37,16 @@ def test_curve1():
         margin=1e-2,
     )
 
-    assert curve.rationality(0.1) == 10
-    assert curve.rationality(0.11) == 8
-    assert curve.rationality(0.3) == 8
-    assert curve.rationality(1) == 2
-    assert curve.rationality(3) == 2
+    assert curve.rationality(0.1) == (10, 10, 1)
+    assert curve.rationality(0.11) == (10, 8, approx(0.05))
+    assert curve.rationality(0.3) == (8, 8, 1)
+    assert curve.rationality(1) == (8, 2, approx(7/27))
+    assert curve.rationality(3) == (2, 2, 1)
 
     assert curve.win_prob(0.1) == Interval(0.8, 0.8)
-    assert curve.win_prob(0.11) == Interval(0.6, 0.6 + 1e-2)
+    assert 0.6 < curve.win_prob(0.11) < 0.7
     assert curve.win_prob(0.3) == Interval(0.6, 0.6 + 1e-2)
-    assert curve.win_prob(1) == Interval(0.1, 0.1 + 1e-2)
+    assert 0.1 < curve.win_prob(1) < 0.6
 
 
 def test_pareto_toy():
@@ -85,12 +85,13 @@ def test_pareto_toy():
     assert curve.max_entropy == entropy5(0)
 
     # Always approximate with higher entropy.
-    assert entropy5(curve.rationality(0.3)) >= 0.3
+    left, right, _ = curve.rationality(0.3)
+    assert entropy5(left) <= 0.3 <= entropy5(right)
 
     # Matching entropy 
     target_entropy = entropy5(1)
-    win_prob_lowerbound = curve.win_prob(target_entropy).low
+    win_prob_lowerbound = curve.win_prob(target_entropy)
     win_prob_actual = win_prob5(1)
 
-    assert win_prob_lowerbound <= win_prob_actual
-    assert win_prob_actual - win_prob_lowerbound <= 1e-2
+    assert win_prob_lowerbound < win_prob_actual
+    assert win_prob_lowerbound > win_prob_actual - 1e-2
