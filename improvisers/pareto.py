@@ -52,6 +52,19 @@ class Point(NamedTuple):
     win_prob: float
 
 
+@attr.s(frozen=True, auto_attribs=True)
+class ConvexPoint:
+    left: Point
+    right: Point
+    prob_left: float
+
+    def __getattr__(self, name: str) -> float:
+        left = getattr(self.left, name)
+        right = getattr(self.right, name)
+        p = self.prob_left
+        return p * left + (1 - p) * right  # type: ignore
+
+
 @attr.s(auto_detect=True, auto_attribs=True, frozen=True)
 class Region:
     left: Point   # min rationality point.
@@ -83,18 +96,42 @@ FindPoint = Callable[[float], Point]
 
 @attr.s(auto_attribs=True, frozen=True)
 class Pareto:
+    """Lower bound on Pareto frontier."""
     margin: float
     points: Sequence[Point] = attr.ib(converter=sorted)
 
-    def __getitem__(self, entropy: float) -> Point:
-        """Look up point by entropy."""
+    def __getitem__(self, entropy: float) -> ConvexPoint:
+        """Look up point by entropy.
+
+        Returns:
+          Convex combination of points on the pareto boundary.
+        """
         point = (entropy, -oo, -oo)  # Lift to partially defined point.
         index = bisect_left(self.points, point)
-        return self.points[index]
+        right = self.points[index]   # Find point to right of index.
+        assert right.entropy >= entropy
 
-    def rationality(self, entropy: float) -> float:
-        """Look up rationality by entropy."""
-        return self[entropy].rationality
+        if right.entropy == entropy:
+            return ConvexPoint(right, right, 1)  # Degenerate combination.
+
+        left = self.points[index - 1]
+        assert left.entropy <= entropy
+
+        prob = (entropy - left.entropy) / (right.entropy - left.entropy)
+        return ConvexPoint(left, right, prob)
+
+    def rationality(self, entropy: float) -> Tuple[float, float, float]:
+        """Look up rationality by entropy.
+
+        Returns:
+          Convex combination of rationality coefficents, 
+
+            λ ≜ p·λ₁ + (1 - p)·λ₂,
+
+          represented as a tuple, (λ₁, λ₂, p).
+        """
+        point = self[entropy]
+        return point.left.rationality, point.right.rationality, point.prob_left
 
     def win_prob(self, entropy: float) -> Interval:
         """Look up win_prob by entropy."""
@@ -103,11 +140,11 @@ class Pareto:
         return Interval(lower, upper)
 
     @property
-    def max_win_prob(self):
+    def max_win_prob(self) -> float:
         return self.points[0].win_prob
 
     @property
-    def max_entropy(self):
+    def max_entropy(self) -> float:
         return self.points[-1].entropy
 
     @staticmethod
