@@ -56,4 +56,3 @@ def test_pareto_toy():
 
     assert win_prob_lowerbound < win_prob_actual
     assert win_prob_lowerbound > win_prob_actual - 1e-2
-

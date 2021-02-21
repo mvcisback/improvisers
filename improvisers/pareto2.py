@@ -56,7 +56,7 @@ def discretize(func: RealFunc, tol: float) -> List2d:
 
 
 def interp(x: ArrayLike, y: ArrayLike, kind: str) -> RealFunc:
-    func = interp1d(x, y, kind=kind)
+    func = interp1d(x, y, kind=kind, assume_sorted=True)
     return lambda z: float(func(z))  # Type shenanigans.
 
 
@@ -130,7 +130,9 @@ class Pareto:
         points = np.array([entropies, probs_lo]).T
         points = np.vstack([points, [-1, -1]])  # Add dummy bottom point.
         dummy_idx = len(points) - 1
-        mask = sorted(set(ConvexHull(points).vertices) - {dummy_idx})
+
+        mask = list(set(ConvexHull(points).vertices) - {dummy_idx})
+        mask = sorted(mask, key=lambda i: entropies[i])
 
         # Apply mask and interpolate.
         coeffs = coeffs[mask]
@@ -140,7 +142,7 @@ class Pareto:
 
         return Pareto(
             size=len(coeffs),
-            entropy=interp(coeffs, entropies, 'linear'),
+            entropy=interp(coeffs[::-1], entropies[::-1], 'linear'),
             lower_win_prob=interp(entropies, probs_lo, 'linear'),
             upper_win_prob=interp(entropies, probs_hi, 'linear'),
             lower_rationality=interp(entropies, coeffs, 'previous'),
