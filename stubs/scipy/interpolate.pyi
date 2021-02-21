@@ -7,5 +7,6 @@ def interp1d(
         y: ArrayLike,
         kind: str = 'linear', 
         assume_sorted: bool = False,
+        copy: bool = False,
 ) -> Callable[[float], float]:
     ...

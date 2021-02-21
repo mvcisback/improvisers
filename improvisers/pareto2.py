@@ -56,7 +56,7 @@ def discretize(func: RealFunc, tol: float) -> List2d:
 
 
 def interp(x: ArrayLike, y: ArrayLike, kind: str) -> RealFunc:
-    func = interp1d(x, y, kind=kind, assume_sorted=True)
+    func = interp1d(x, y, kind=kind, assume_sorted=True, copy=False)
     return lambda z: float(func(z))  # Type shenanigans.
 
 
@@ -79,15 +79,15 @@ class Pareto:
         entropies = np.linspace(lo, hi, 50)
         pwins_upper = [self.upper_win_prob(e) for e in entropies]
         pwins_lower = [self.lower_win_prob(e) for e in entropies]
-        plt.plot(entropies, pwins_upper, fill=True, point_marker=2)
-        plt.plot(entropies, pwins_lower, fill=True, point_marker=1)
-
+        plt.plot(entropies, pwins_upper, fill=True)
+        plt.plot(entropies, pwins_lower, fill=True)
 
         plt.xlabel('entropy')
         plt.ylabel('pwin')
         plt.canvas_color('none')
         plt.ticks_color('white')
         plt.axes_color('black')
+        plt.title('Feasible Region')
         plt.show()
 
     def __contains__(self, entropy: float, pwin: float) -> bool:
@@ -126,13 +126,12 @@ class Pareto:
         coeffs, probs_lo = map(np.array, discretize(lower_win_prob, tol))
         entropies = np.array([entropy(x) for x in coeffs])
 
-        # Find indicies in convex hull of lower pareto front.
+        # Find mask for convex hull of lower pareto front.
         points = np.array([entropies, probs_lo]).T
         points = np.vstack([points, [-1, -1]])  # Add dummy bottom point.
         dummy_idx = len(points) - 1
-
-        mask = list(set(ConvexHull(points).vertices) - {dummy_idx})
-        mask = sorted(mask, key=lambda i: entropies[i])
+        mask = set(ConvexHull(points).vertices) - {dummy_idx}
+        mask = sorted(mask, key=entropies.__getitem__)
 
         # Apply mask and interpolate.
         coeffs = coeffs[mask]
