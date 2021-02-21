@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Optional, Sequence, Iterable, Tuple, List, Set
+from typing import no_type_check
 
 import attr
 import numpy as np
@@ -38,10 +39,6 @@ class Region:
         return left + (right - left) / 2  # Avoid large floats.
 
 
-def mask(data: List[float], indicies: List[int]) -> List[float]:    
-    return [data[i] for i in indicies]
-
-
 def discretize(func: RealFunc, tol: float) -> List2d:
     from heapq import heappop as pop, heappush as push
 
@@ -74,6 +71,7 @@ class Pareto:
     upper_rationality: RealFunc   # Get upper rationality by entropy.
 
 
+    @no_type_check
     def show(self) -> None:
         import plotext as plt
 
@@ -118,29 +116,28 @@ class Pareto:
         mixture = (entropy - low_entropy) / (high_entropy - low_entropy)
         return (low_coeff, high_coeff, mixture)
 
+    @no_type_check
     @staticmethod
     def build(lower_win_prob: RealFunc,
               upper_win_prob: RealFunc,
               entropy: RealFunc, 
               tol: float,) -> Pareto:
 
-        coeffs, probs_lo = discretize(lower_win_prob, tol)
-        entropies = [entropy(x) for x in coeffs]
+        coeffs, probs_lo = map(np.array, discretize(lower_win_prob, tol))
+        entropies = np.array([entropy(x) for x in coeffs])
 
-        if len(coeffs) > 2:
-            # Compute convex hull.
-            points = list(zip(entropies, probs_lo))
-            points.append((0, 0)) # Add dummy point to make this work if const.
-            dummy_idx = len(points) - 1
-            indicies = list(set(ConvexHull(points).vertices) - {dummy_idx})
+        # Find indicies in convex hull of lower pareto front.
+        points = np.array([entropies, probs_lo]).T
+        points = np.vstack([points, [-1, -1]])  # Add dummy bottom point.
+        dummy_idx = len(points) - 1
+        mask = sorted(set(ConvexHull(points).vertices) - {dummy_idx})
 
-            coeffs = mask(coeffs, indicies)
-            entropies = mask(entropies, indicies)
-            probs_lo = mask(probs_lo, indicies)
-
+        # Apply mask and interpolate.
+        coeffs = coeffs[mask]
+        entropies = entropies[mask]
+        probs_lo = probs_lo[mask]
         probs_hi = [upper_win_prob(x) for x in coeffs]
 
-        # TODO: presort and assume sorted
         return Pareto(
             size=len(coeffs),
             entropy=interp(coeffs, entropies, 'linear'),
