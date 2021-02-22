@@ -16,6 +16,28 @@ from improvisers.explicit import ExplicitDist as Dist
 
 
 oo = float('inf')
+RealFunc = Callable[[float], float]
+
+
+def binary_search(
+        f: RealFunc, lo: float, hi: float, eps: float = 1e-2
+) -> float:
+    tmp = f(lo)
+    if tmp == 0:
+        return lo
+    elif tmp > 0:
+        raise ValueError
+    tmp = f(hi)
+    if tmp == 0:
+        return hi
+    elif tmp < 0:
+        raise ValueError
+
+    mid = lo
+    while hi - lo > eps:
+        mid = lo + (hi - lo) / 2
+        lo, hi = (lo, mid) if f(mid) else (mid, hi)
+    return lo + (hi - lo) / 2
 
 
 CacheKey = Tuple[Node, Hashable, float]
@@ -66,6 +88,7 @@ class TabularCritic:
     # cache: Cache = attr.ib(factory=Cache)
     #_min_ent_moves: Dict[Node, List[Node]] = attr.ib(factory=dict)
 
+    @lru_cache
     def min_ent_moves(self, node: Node) -> List[Node]:
         """Return moves which minimizes the *achievable* entropy."""
         #if node in self._min_ent_moves:
@@ -197,7 +220,7 @@ class TabularCritic:
         top = 1
         for _ in range(num_iter):
             try:
-                return brentq(f, -top, top)
+                return binary_search(f, 0, top)
             except ValueError:
                 top *= 2
 

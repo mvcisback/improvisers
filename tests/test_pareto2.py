@@ -47,7 +47,7 @@ def test_pareto_toy():
 
     # Always approximate with higher entropy.
     left, right, p = curve.rationality(0.7)
-    assert (1 - p)*entropy5(left) + p*entropy5(right) == approx(0.7)
+    assert p*entropy5(left) + (1 - p)*entropy5(right) == approx(0.7)
 
     # Matching entropy 
     target_entropy = entropy5(1)

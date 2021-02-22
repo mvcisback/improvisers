@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Callable, Optional, Sequence, Iterable, Tuple, List, Set
 from typing import no_type_check
 
@@ -35,7 +36,10 @@ class Region:
     @property
     def avg_coeff(self) -> float:
         left, right = self.left[0], self.right[0]
-        right = min(right, 2 * left + 3)  # Doubling trick for infinite coeff.
+
+        if right == oo:
+            return max(2 * left, 3)
+
         return left + (right - left) / 2  # Avoid large floats.
 
 
@@ -112,16 +116,17 @@ class Pareto:
 
           represented as a tuple, (λ₁, λ₂, p).
         """
-        low_coeff = self.lower_rationality(entropy)
-        high_coeff = self.upper_rationality(entropy)
+        low_coeff: float = self.lower_rationality(entropy)
+        high_coeff: float = self.upper_rationality(entropy)
         assert low_coeff <= high_coeff
         
-        low_entropy = self.entropy(low_coeff)
-        high_entropy = self.entropy(high_coeff)
+        low_entropy: float = self.entropy(high_coeff)
+        high_entropy: float = self.entropy(low_coeff)
 
         if (low_coeff == high_coeff) or (low_entropy == high_entropy):
-            mixture = 1
+            mixture = 1.0
         else:
+            assert low_entropy <= high_entropy
             mixture = (entropy - low_entropy) / (high_entropy - low_entropy)
         return (low_coeff, high_coeff, mixture)
 

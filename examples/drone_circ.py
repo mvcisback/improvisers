@@ -22,6 +22,8 @@ from mdd.nx import to_nx
 
 from improvisers.explicit import ExplicitDist
 from improvisers.policy import solve
+from improvisers.pareto_critic import ParetoCritic
+from improvisers.tabular import TabularCritic
 
 
 TERM = Terminal()
@@ -243,8 +245,8 @@ def p2_patrol_policy(dim):
 
     update = BV.ite(
         p2_in_goal,
-        #BV.ite(turn_around, action + 2, action + 1),
-        BV.ite(turn_around, action + 1, action + 1),
+        BV.ite(turn_around, action + 2, action + 1),
+        #BV.ite(turn_around, action + 1, action + 1),
         action,
     ).with_output('a₂').aigbv
 
@@ -468,8 +470,8 @@ def lifted_policy(actor, horizon):
     
 
 def main():
-    dim = 7
-    horizon = 15
+    dim = 5
+    horizon = 14
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -493,7 +495,7 @@ def main():
         #mdd = monitor2mdd(monitor, horizon)
         #breakpoint()
 
-        #bdd = monitor2bdd(monitor, horizon)
+        bdd = monitor2bdd(monitor, horizon)
         print('building BDD')
         mdd = monitor2bdd2mdd(monitor, horizon)
         print(mdd.bdd.dag_size)
@@ -503,7 +505,14 @@ def main():
 
         print('solving game with psat = 0.8')
         game = DroneGameGraph(graph)
+        #critic = ParetoCritic.from_game_graph(game, tol=1e-2)
+        import time
+        start = time.time()
+        #curve = critic.pareto(game.root)
+        critic = TabularCritic.from_game_graph(game)
         actor = solve(game, psat=0.8)
+        print(time.time() - start)
+
 
     while True:
         input('run?')

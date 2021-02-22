@@ -446,7 +446,7 @@ toposort = ">=1.5,<2.0"
 
 [[package]]
 name = "py-aiger-bdd"
-version = "3.0.2"
+version = "3.0.3"
 description = "Aiger to BDD bridge."
 category = "dev"
 optional = false
@@ -1037,8 +1037,8 @@ py-aiger = [
     {file = "py_aiger-6.1.13-py3-none-any.whl", hash = "sha256:4677b33b6707589404474498b03c1705bc013f4e5baddf53f1ed704d4eb7623d"},
 ]
 py-aiger-bdd = [
-    {file = "py-aiger-bdd-3.0.2.tar.gz", hash = "sha256:bc74bef12de9d89479c3446feda347478c036e868ceccfefd9398c05f53d75b7"},
-    {file = "py_aiger_bdd-3.0.2-py3-none-any.whl", hash = "sha256:1d04acd2aa14bc9cbf1f15cb752888b698bf6b5fe94c259907d313ca860a60e0"},
+    {file = "py-aiger-bdd-3.0.3.tar.gz", hash = "sha256:94ae35abef2c309c3d2f6e775d0cc2650b84b96b535da81bdf331c8825276d82"},
+    {file = "py_aiger_bdd-3.0.3-py3-none-any.whl", hash = "sha256:bddd2ae2cde9f756764c77860e9534bd18f0ccfde4c29debdef3bcc51cc05344"},
 ]
 py-aiger-bv = [
     {file = "py-aiger-bv-4.5.3.tar.gz", hash = "sha256:d409fcd9b51cdb38f8f473b62972df9de78ca13f56a8db68e75ea744409d4fb0"},

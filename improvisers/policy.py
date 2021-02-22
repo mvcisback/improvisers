@@ -72,9 +72,6 @@ def from_p2_path(game: Game,
         node, path, lprob = stack.pop()
         label = game.label(node)
 
-        if path == [] and node != target:
-            raise NotImplementedError("Do not support partial paths yet.")
-
         if (label == 'p1') or isinstance(label, bool):
             prev_lprob = dist.get(node, 0.0)
             dist[node] = logsumexp([prev_lprob, lprob])
