@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 from numpy.typing import ArrayLike
 
 
@@ -8,5 +8,6 @@ def interp1d(
         kind: str = 'linear', 
         assume_sorted: bool = False,
         copy: bool = False,
+        fill_value: Optional[str] = None,
 ) -> Callable[[float], float]:
     ...

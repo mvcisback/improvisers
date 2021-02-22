@@ -56,7 +56,10 @@ def discretize(func: RealFunc, tol: float) -> List2d:
 
 
 def interp(x: ArrayLike, y: ArrayLike, kind: str) -> RealFunc:
-    func = interp1d(x, y, kind=kind, assume_sorted=True, copy=False)
+    func = interp1d(
+        x, y, kind=kind, assume_sorted=True, copy=False, 
+        fill_value='extrapolate'
+    )
     return lambda z: float(func(z))  # Type shenanigans.
 
 
@@ -74,6 +77,8 @@ class Pareto:
     @no_type_check
     def show(self) -> None:
         import plotext as plt
+
+        plt.clt()
 
         lo, hi = self.entropy(oo), self.entropy(0)
         entropies = np.linspace(lo, hi, 50)
@@ -109,11 +114,15 @@ class Pareto:
         """
         low_coeff = self.lower_rationality(entropy)
         high_coeff = self.upper_rationality(entropy)
-
+        assert low_coeff <= high_coeff
+        
         low_entropy = self.entropy(low_coeff)
         high_entropy = self.entropy(high_coeff)
 
-        mixture = (entropy - low_entropy) / (high_entropy - low_entropy)
+        if (low_coeff == high_coeff) or (low_entropy == high_entropy):
+            mixture = 1
+        else:
+            mixture = (entropy - low_entropy) / (high_entropy - low_entropy)
         return (low_coeff, high_coeff, mixture)
 
     @no_type_check
@@ -124,13 +133,27 @@ class Pareto:
               tol: float,) -> Pareto:
 
         coeffs, probs_lo = map(np.array, discretize(lower_win_prob, tol))
+        inf_idx = int(np.where(coeffs == oo)[0])  # Special logic for oo.
         entropies = np.array([entropy(x) for x in coeffs])
+
+        if (entropies == entropies[0]).all():  # Constant function.
+            probs_hi = [upper_win_prob(x) for x in coeffs]
+            h, plo, phi = entropies[0], probs_lo.max(), max(probs_hi)
+            return Pareto(
+                size=1,
+                entropy=lambda _: h,
+                lower_win_prob=lambda _: plo,
+                upper_win_prob=lambda _: phi,
+                lower_rationality=lambda _: oo,
+                upper_rationality=lambda _: oo,
+            )
 
         # Find mask for convex hull of lower pareto front.
         points = np.array([entropies, probs_lo]).T
         points = np.vstack([points, [-1, -1]])  # Add dummy bottom point.
         dummy_idx = len(points) - 1
-        mask = set(ConvexHull(points).vertices) - {dummy_idx}
+
+        mask = (set(ConvexHull(points).vertices) - {dummy_idx}) | {inf_idx}
         mask = sorted(mask, key=entropies.__getitem__)
 
         # Apply mask and interpolate.
@@ -141,11 +164,11 @@ class Pareto:
 
         return Pareto(
             size=len(coeffs),
-            entropy=interp(coeffs[::-1], entropies[::-1], 'linear'),
+            entropy=interp(coeffs[::-1], entropies[::-1], 'next'),
             lower_win_prob=interp(entropies, probs_lo, 'linear'),
             upper_win_prob=interp(entropies, probs_hi, 'linear'),
-            lower_rationality=interp(entropies, coeffs, 'previous'),
-            upper_rationality=interp(entropies, coeffs, 'next'),
+            lower_rationality=interp(entropies, coeffs, 'next'),
+            upper_rationality=interp(entropies, coeffs, 'previous'),
         )
 
 __all__ = ['Pareto']
