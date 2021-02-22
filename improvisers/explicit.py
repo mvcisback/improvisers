@@ -17,9 +17,12 @@ ConcreteActions = Union[Set[Node], Dict[Node, float]]
 Graph = Dict[Node, Tuple[NodeKinds2, ConcreteActions]]
 
 
-@attr.s(frozen=True, auto_attribs=True, hash=True)
+@attr.s(frozen=True, auto_attribs=True, auto_detect=True)
 class ExplicitDist(Distribution):
     data: Dict[Node, float] = attr.ib(factory=dict, converter=dict)
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.data.items()))
 
     @property
     def entropy(self) -> float:
@@ -38,7 +41,7 @@ class ExplicitDist(Distribution):
         return self.data.keys()
 
 
-@attr.s(frozen=True, auto_attribs=True)
+@attr.s(frozen=True, auto_attribs=True, eq=False)
 class ExplicitGameGraph:
     root: Node
     graph: Graph
