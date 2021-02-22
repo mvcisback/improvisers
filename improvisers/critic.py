@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Protocol, Tuple, Union
+from typing import Protocol, Tuple, Union, Optional
 
 from improvisers.game_graph import Node, GameGraph, Distribution
 
 
 DistLike = Union[Node, Distribution]
+Feasible = Optional[float]
 
 
 class Critic(Protocol):
@@ -49,6 +50,14 @@ class Critic(Protocol):
 
     def min_psat_move(self, node: Node, rationality: float) -> Tuple[Node, float]:  # noqa: E501
         """Return move which minimizes psat of rationality policy."""
+        ...
+
+    def feasible(self, node: Node, entropy: float, psat: float) -> Feasible:
+        """Tests if a given (entropy, psat) point is feasible.
+
+        Returns:
+          None if not feasible and rationality coefficent if it is.
+        """
         ...
 
     @staticmethod

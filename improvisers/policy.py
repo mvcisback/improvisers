@@ -160,6 +160,7 @@ def solve(game: GameGraph,
             "No improviser exists. Could not reach psat in this MDP"
         )
 
+    # TODO: Don't match psat. Instead search frontier.
     rationality = max(0, critic.match_psat(state, psat))
 
     if critic.entropy(state, rationality) < entropy:

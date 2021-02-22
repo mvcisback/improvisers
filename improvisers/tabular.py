@@ -200,7 +200,7 @@ class TabularCritic:
 
     def _rationality(self, node: Node, target: float,
                      match_entropy: bool = False,
-                     num_iter: int = 100) -> float:
+                     num_iter: int = 5) -> float:
         """Bracketed search for rationality to match either psat or entropy."""
         assert target >= 0, "Entropy or probabilities must be positive."
         if not match_entropy:  # Matching psat.
@@ -214,15 +214,16 @@ class TabularCritic:
         # TODO: properly support negative rationality.
         if f(-100) > 0:
             return -100   # TODO: support -oo.
-        elif f(oo) < 0:
+        elif f(oo) <= 0:
             return oo
 
-        top = 1
-        for _ in range(num_iter):
+        # Doubling trick
+        for i in range(num_iter):
             try:
-                return binary_search(f, 0, top)
+                bot, top = 1 << i, 1 << (i + 1)
+                return binary_search(f, bot, top)
             except ValueError:
-                top *= 2
+                pass
 
         return oo  # Effectively infinite.
 
@@ -301,6 +302,22 @@ class TabularCritic:
                     stack.append((lprob2, node2, rationality))
         node2prob = {k: math.exp(v) for k, v in node2prob.items()}
         return Dist(node2prob)
+
+    def _feasible(self, node: node, psat: float, entropy: float, lo: float, hi: float) -> bool:
+        ...
+
+    def feasible(self, node: node, psat: float, entropy: float) -> bool:
+        # Outside range
+        if (self.entropy(node, 0) < entropy) or (self.psat(node, oo) < psat):
+            return None
+        
+        for i in range(num_iter):
+            try:
+                return binary_search(f, i, 1 << i)
+            except ValueError:
+                pass
+
+        return oo  # Effectively infinite.
 
     @staticmethod
     def from_game_graph(game_graph: GameGraph) -> Critic:
