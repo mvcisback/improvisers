@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 from typing import Hashable, List, Tuple, Dict, Callable
+from functools import lru_cache
 
 import attr
 import numpy as np
@@ -62,13 +63,13 @@ def cached_stat(func: NodeStatFunc) -> NodeStatFunc:
 @attr.s(auto_attribs=True, frozen=True)
 class TabularCritic:
     game: GameGraph
-    cache: Cache = attr.ib(factory=Cache)
-    _min_ent_moves: Dict[Node, List[Node]] = attr.ib(factory=dict)
+    # cache: Cache = attr.ib(factory=Cache)
+    #_min_ent_moves: Dict[Node, List[Node]] = attr.ib(factory=dict)
 
     def min_ent_moves(self, node: Node) -> List[Node]:
         """Return moves which minimizes the *achievable* entropy."""
-        if node in self._min_ent_moves:
-            return self._min_ent_moves[node]
+        #if node in self._min_ent_moves:
+        #    return self._min_ent_moves[node]
 
         moves, worst = [], oo
         for node2 in self.game.moves(node):
@@ -77,7 +78,7 @@ class TabularCritic:
                 moves, worst = [node2], entropy
             elif entropy == worst:
                 moves.append(node2)
-        self._min_ent_moves[node] = moves
+        #self._min_ent_moves[node] = moves
         return moves
 
     def min_ent_move(self, node: Node, rationality: float) -> Node:
@@ -126,7 +127,7 @@ class TabularCritic:
 
         return p2_move, rationality
 
-    @cached_stat
+    @lru_cache(maxsize=None)
     def value(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
 
@@ -148,7 +149,7 @@ class TabularCritic:
         probs = [dist.prob(move) for move in moves]
         return np.average(values, weights=probs)
 
-    @cached_stat
+    @lru_cache(maxsize=None)
     def lsat(self, node_dist: DistLike, rationality: float) -> float:
         if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
             dist = node_dist
@@ -202,15 +203,15 @@ class TabularCritic:
 
         return oo  # Effectively infinite.
 
-    @cached_stat
+    @lru_cache(maxsize=None)
     def match_entropy(self, node: Node, target: float) -> float:
         return self._rationality(node, target, match_entropy=True)
 
-    @cached_stat
+    @lru_cache(maxsize=None)
     def match_psat(self, node: Node, target: float) -> float:
         return self._rationality(node, target, match_entropy=False)
 
-    @cached_stat
+    @lru_cache(maxsize=None)
     def entropy(self, node_dist: DistLike, rationality: float) -> float:
         if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
             dist = node_dist
