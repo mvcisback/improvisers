@@ -48,12 +48,12 @@ def test_stochastic_game_policy_smoke():
     )
 
     with pytest.raises(ValueError):   # Unachievable psat, achievable entropy.
-        RCI.solve(game_graph, entropy=0, psat=1/3 + 0.1)
+        RCI.solve(game_graph, percent_entropy=0, psat=1/3 + 0.1)
 
     with pytest.raises(ValueError):   # Achievable psat, unachievable entropy.
-        RCI.solve(game_graph, entropy=1.5, psat=1/3)
+        RCI.solve(game_graph, percent_entropy=0.99, psat=1/3)
 
-    actor = RCI.solve(game_graph, psat=1/3)
+    actor = RCI.solve(game_graph, psat=1/3)  # Max ent
     policy = actor.improvise()
     observation = None
     while True:

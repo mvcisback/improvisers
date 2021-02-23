@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import math
-from typing import Hashable, List, Tuple, Dict, Callable
-from functools import lru_cache
+from typing import Hashable, List, Tuple, Dict, Callable, Optional, Literal
+from typing import Union
+from functools import lru_cache, partial
 
 import attr
 import numpy as np
@@ -17,6 +18,13 @@ from improvisers.explicit import ExplicitDist as Dist
 
 oo = float('inf')
 RealFunc = Callable[[float], float]
+Feasibile = Optional[float]
+SearchCMD = Union[
+    Literal['increase'], 
+    Literal['decrease'], 
+    None,   # Reject
+    float,  # Accept
+]
 
 
 def binary_search(
@@ -33,53 +41,13 @@ def binary_search(
     elif tmp < 0:
         raise ValueError
 
-    mid = lo
     while hi - lo > eps:
         mid = lo + (hi - lo) / 2
-        lo, hi = (lo, mid) if f(mid) else (mid, hi)
+        tmp = f(mid)
+        if tmp == 0:
+            return mid        
+        lo, hi = (lo, mid) if tmp > 0 else (mid, hi)
     return lo + (hi - lo) / 2
-
-
-CacheKey = Tuple[Node, Hashable, float]
-
-
-@attr.s(frozen=True, auto_attribs=True)
-class Cache:
-    data: Dict[Tuple[Node, Hashable], Tuple[float, float]] = attr.ib(
-        factory=dict
-    )
-
-    def __contains__(self, key: CacheKey) -> bool:
-        node, stat_key, rationality = key
-        if (node, stat_key) not in self.data:
-            return False
-        return self.data[node, stat_key][1] == rationality
-
-    def __getitem__(self, key: CacheKey) -> float:
-        node, stat_key, _ = key
-        if key not in self:
-            raise ValueError(f"key: {key} not in cache.")
-        return self.data[node, stat_key][0]
-
-    def __setitem__(self, key: CacheKey, val: float) -> None:
-        node, stat_key, rationality = key
-        self.data[node, stat_key] = (val, rationality)
-
-
-def cached_stat(func: NodeStatFunc) -> NodeStatFunc:
-    """Cache node level statistics. Only once per rationality."""
-    def wrap(critic: TabularCritic,
-             node_dist: DistLike,
-             rationality: float) -> float:
-        if isinstance(node_dist, Dist):  # Don't cache distributions.
-            return func(critic, node_dist, rationality)
-        node = node_dist
-        if (node, func, rationality) in critic.cache:
-            return critic.cache[node, func, rationality]
-        val = func(critic, node, rationality)
-        critic.cache[node, func, rationality] = val
-        return val
-    return wrap
 
 
 @attr.s(auto_attribs=True, frozen=True)
@@ -209,21 +177,20 @@ class TabularCritic:
         stat = self.entropy if match_entropy else self.psat
 
         def f(coeff: float) -> float:
-            return stat(node, coeff) - target
+            return stat(node, coeff) - target  # type: ignore
 
         # TODO: properly support negative rationality.
-        if f(-100) > 0:
-            return -100   # TODO: support -oo.
-        elif f(oo) <= 0:
+        if f(oo) <= 0:
             return oo
 
-        # Doubling trick
+        # Doubling trick.
+        bot = 0
         for i in range(num_iter):
             try:
-                bot, top = 1 << i, 1 << (i + 1)
+                top = 1 << i
                 return binary_search(f, bot, top)
             except ValueError:
-                pass
+                bot = top
 
         return oo  # Effectively infinite.
 
@@ -303,21 +270,43 @@ class TabularCritic:
         node2prob = {k: math.exp(v) for k, v in node2prob.items()}
         return Dist(node2prob)
 
-    def _feasible(self, node: node, psat: float, entropy: float, lo: float, hi: float) -> bool:
-        ...
-
-    def feasible(self, node: node, psat: float, entropy: float) -> bool:
-        # Outside range
+    def feasible(self, node: Node, entropy: float, psat: float) -> Feasible:
         if (self.entropy(node, 0) < entropy) or (self.psat(node, oo) < psat):
             return None
-        
-        for i in range(num_iter):
-            try:
-                return binary_search(f, i, 1 << i)
-            except ValueError:
-                pass
 
-        return oo  # Effectively infinite.
+        if (self.entropy(node, oo) >= entropy):
+            return oo  # Already know self.psat(node, oo) >= 0.
+
+        def get_cmd(coeff: float) -> SearchCMD:
+            # TODO: introduce tolerance here.
+            hfeasible = self.entropy(node, coeff) >= entropy
+            pfeasible = self.psat(node, coeff) >= psat
+
+            if hfeasible and pfeasible:
+                return coeff
+            elif hfeasible and not pfeasible:
+                return "increase"
+            elif not hfeasible and pfeasible:
+                return "decrease"
+            else:
+                return None
+        
+        # Doubling trick for range.
+        lo = hi = 0
+        for i in range(5):
+            cmd = get_cmd(hi)
+            if not isinstance(cmd, str):
+                return cmd
+            elif cmd == 'decrease':
+                break
+            lo, hi = hi, 1 << i
+
+        while True:
+            mid = lo + (hi - lo) / 2
+            cmd = get_cmd(mid)
+            if not isinstance(cmd, str):
+                return cmd
+            lo, hi = (lo, mid) if cmd == 'decrease' else (mid, hi)
 
     @staticmethod
     def from_game_graph(game_graph: GameGraph) -> Critic:

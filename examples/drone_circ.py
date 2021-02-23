@@ -236,12 +236,21 @@ def guarantees():
 def p2_patrol_policy(dim):
     p2_in_goal = BV.uatom(1, 'p2_in_goal')
     action = BV.uatom(2, 'a₂')
+
+    # ---- 2 player game ----
     #turn_around = BV.uatom(1, '🗘')
+
+    # ---- Stochastic Game -----
     turn_around = BV.ite(
         BV.uatom(1, '🗘'),
         BV.uatom(1, '🎲₁'),
         BV.uatom(1, '🎲₂'),
     )
+
+    # ---- MDP case ----
+    #dontcare = BV.uatom(1, '🗘') | BV.uatom(1, '🎲₂') | 1
+    #turn_around = BV.uatom(1, '🎲₁') & dontcare
+    
 
     update = BV.ite(
         p2_in_goal,
@@ -500,7 +509,7 @@ def main():
         mdd = monitor2bdd2mdd(monitor, horizon)
         print(mdd.bdd.dag_size)
         print('building converting into game graph')
-        graph = to_nx(mdd, symbolic_edges=False)
+        graph = to_nx(mdd, symbolic_edges=True)
         print(len(graph))
 
         print('solving game with psat = 0.8')
@@ -509,8 +518,11 @@ def main():
         import time
         start = time.time()
         #curve = critic.pareto(game.root)
-        critic = TabularCritic.from_game_graph(game)
-        actor = solve(game, psat=0.8)
+        try:
+            actor = solve(game, psat=0.8, percent_entropy=0.8)
+        except:
+            pass
+            #actor = solve(game, psat=0.8)
         print(time.time() - start)
 
 

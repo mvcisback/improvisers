@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from functools import partial, lru_cache
-from typing import Hashable, List, Sequence, Tuple, Dict, Callable
+from typing import Hashable, List, Sequence, Tuple, Dict, Callable, Optional
 from typing import no_type_check
 
 import attr
@@ -204,12 +204,15 @@ class ParetoCritic:
     def pareto(self, node: Node) -> Pareto:
         label = self.game.label(node)
         psat = self.psat_min if label == 'p2' else self.psat
-        return Pareto.build(
+        return Pareto.build(  # type: ignore
             entropy=lambda x: self.entropy(node, x),
             lower_win_prob=lambda x: psat(node, x, lower=True),  # type: ignore
             upper_win_prob=lambda x: psat(node, x, lower=False), # type: ignore
             tol=self.tol,
         )
+
+    def feasible(self, node: Node, entropy: float, psat: float) -> Optional[float]:
+        ...
 
 
 NodeStatFunc = Callable[[ParetoCritic, Node, float], float]

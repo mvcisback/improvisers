@@ -14,6 +14,7 @@ from improvisers.tabular import TabularCritic
 from improvisers.explicit import ExplicitDist
 
 
+oo = float('inf')
 Game = GameGraph
 Dist = Distribution
 State = Tuple[Node, float]  # Policy State = current node + rationality.
@@ -136,7 +137,7 @@ class Actor:
 
 def solve(game: GameGraph,
           psat: float = 0,
-          entropy: float = 0,
+          percent_entropy: Optional[float] = None,
           critic: Optional[Critic] = None) -> Actor:
     """Find player 1 improviser for game.
 
@@ -155,18 +156,31 @@ def solve(game: GameGraph,
     if critic is None:
         critic = TabularCritic(game)
 
-    if critic.psat(state, float('inf')) < psat:
+    if critic.psat(state, oo) < psat:
         raise ValueError(
             "No improviser exists. Could not reach psat in this MDP"
         )
-
-    # TODO: Don't match psat. Instead search frontier.
-    rationality = max(0, critic.match_psat(state, psat))
+    elif percent_entropy is not None:
+        h0, hinf = critic.entropy(state, 0), critic.entropy(state, oo)
+        entropy = percent_entropy * (h0 - hinf) + hinf
+        rationality = critic.feasible(state, entropy, psat)
+        if rationality is None:
+            raise ValueError('No improviser exists!')
+    else:
+        # Maximum entropy.
+        rationality = max(0, critic.match_psat(state, psat))
+        entropy = critic.entropy(state, rationality)
 
     if critic.entropy(state, rationality) < entropy:
         raise ValueError(
             "No improviser exists. Entropy constraint unreachable."
         )
+
+    if critic.psat(state, rationality) < psat:
+        raise ValueError(
+            "No improviser exists. Could not reach psat in this MDP"
+        )
+
     return Actor(game, critic, rationality)
 
 
