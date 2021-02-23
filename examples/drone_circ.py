@@ -121,14 +121,40 @@ def state_combiner(dim: int):
     return s1.concat(s2).with_output('state').aigbv
 
 
+def battery(n: int=3):
+    drain1 = BV.uatom(1, 'drain1')
+    drain2 = BV.uatom(1, 'drain2')
+    drain = BV.ite(BV.uatom(1, 'choose_drain'), drain1, drain2)
+    level = BV.uatom(n, 'lvl')
+    update = BV.ite(drain, level >> 1, level).with_output('lvl')
+    init = BV.encode_int(n, 1 << n - 1, signed=False)
+    return update.aigbv.loopback({
+        'input': 'lvl',
+        'output': 'lvl',
+        'keep_output': True,
+        'init': init,
+    })
+
+
 def drone_dynamics(dim: int):
     left, right = left_right(dim)
     p1_circ = player_dynamics('₁', dim, (1, 1))
     p2_circ = player_dynamics('₂', dim, (right + 1, right + 1))
-    return (p1_circ | p2_circ) >> state_combiner(dim)
+
+    dyn = (p1_circ | p2_circ) >> state_combiner(dim)
+    # No battery
+    # return dyn
+    # Add battery
+    bat = battery(3)
+    return dyn | bat
 
 
 # ---------------- Sensors -------------------- #
+
+
+def battery_dead(n=3):
+    return (BV.uatom(3, 'lvl') == 0).with_output('batteryDead').aigbv
+
 
 def crashed(dim):
     s12 = BV.uatom(4*dim, 'state')
@@ -192,17 +218,18 @@ def feature_sensor(dim):
 
     return state.aigbv \
         |  swapped(dim) \
+        |  battery_dead() \
         |  crashed(dim) \
         |  p2_in_goal(dim) \
         |  p2_in_interior(dim) \
-        |  goal_vec(dim, 'p1').aigbv
+        |  goal_vec(dim, 'p1').aigbv \
 
 
 # ---------------- Specifications ---------------------- #
 
 def dont_crash():
     # Circuit monitoring crashed predicate never occurs.
-    test = LTL.parse('H ~(crashed | swapped)')
+    test = LTL.parse('H ~((crashed | swapped) | batteryDead)')
     #test = LTL.parse('H ~crashed')
     return BVExpr(test.aigbv)
 
@@ -240,7 +267,7 @@ def p2_patrol_policy(dim):
     # ---- 2 player game ----
     #turn_around = BV.uatom(1, '🗘')
 
-    # ---- Stochastic Game -----
+    # ---- Stochastic Game (or determinstic below) -----
     turn_around = BV.ite(
         BV.uatom(1, '🗘'),
         BV.uatom(1, '🎲₁'),
@@ -254,8 +281,8 @@ def p2_patrol_policy(dim):
 
     update = BV.ite(
         p2_in_goal,
-        BV.ite(turn_around, action + 2, action + 1),
-        #BV.ite(turn_around, action + 1, action + 1),
+        #BV.ite(turn_around, action + 2, action + 1),  # Stochastic
+        BV.ite(turn_around, action + 1, action + 1),  # Deterministic
         action,
     ).with_output('a₂').aigbv
 
@@ -346,7 +373,7 @@ def monitor2bdd2mdd(monitor, horizon):
     imap = pred.imap
     order = []
     for t in range(horizon):
-        for action in ['a₁', '🗘', '🎲₁', '🎲₂']:
+        for action in ['a₁', '🗘', '🎲₁', '🎲₂', 'choose_drain', 'drain1', 'drain2']:
             order.extend(imap[f'{action}##time_{t}'])
     order.append(f'sat##time_{horizon}')
     
@@ -365,7 +392,7 @@ def monitor2bdd2mdd(monitor, horizon):
     inputs = []
 
     for t in range(horizon):
-        for name in ['a₁', '🗘', '🎲₁', '🎲₂']:
+        for name in ['a₁', '🗘', '🎲₁', '🎲₂', 'choose_drain', 'drain1', 'drain2',]:
             size = imap[name].size
 
             if name in monitor.input_encodings:
@@ -405,10 +432,16 @@ class DroneGameGraph:
             return 'p1'
         elif name.startswith('🗘'):
             return 'p2'
+        elif name.startswith('choose_drain'):
+            return 'p2'
 
         # Is distribution node.
-        assert name.startswith('🎲')
-        bias = 0.3 if name.startswith('🎲₁') else 0.7
+        if name.startswith('drain'):
+            bias = 1/100 if name.startswith('drain1') else 1/50
+        else:
+            assert name.startswith('🎲')
+            bias = 0.3 if name.startswith('🎲₁') else 0.7
+
         support = list(self.graph.neighbors(node))
         assert len(support) <= 2
         
@@ -480,7 +513,7 @@ def lifted_policy(actor, horizon):
 
 def main():
     dim = 5
-    horizon = 14
+    horizon = 15
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -504,7 +537,7 @@ def main():
         #mdd = monitor2mdd(monitor, horizon)
         #breakpoint()
 
-        bdd = monitor2bdd(monitor, horizon)
+        #bdd = monitor2bdd(monitor, horizon)
         print('building BDD')
         mdd = monitor2bdd2mdd(monitor, horizon)
         print(mdd.bdd.dag_size)
