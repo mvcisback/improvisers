@@ -77,6 +77,15 @@ class Pareto:
     lower_rationality: RealFunc   # Get lower rationality by entropy.
     upper_rationality: RealFunc   # Get upper rationality by entropy.
 
+    @no_type_check
+    def as_array(self) -> ArrayLike:
+        lo, hi = self.entropy(oo), self.entropy(0)
+        entropies = np.linspace(lo, hi, 50)
+        pwins_upper = [self.upper_win_prob(e) for e in entropies]
+        pwins_lower = [self.lower_win_prob(e) for e in entropies]
+
+        return np.array([entropies, pwins_lower, pwins_upper])
+
 
     @no_type_check
     def show(self) -> None:
@@ -84,12 +93,9 @@ class Pareto:
 
         plt.clt()
 
-        lo, hi = self.entropy(oo), self.entropy(0)
-        entropies = np.linspace(lo, hi, 50)
-        pwins_upper = [self.upper_win_prob(e) for e in entropies]
-        pwins_lower = [self.lower_win_prob(e) for e in entropies]
-        plt.plot(entropies, pwins_upper, fill=True)
-        plt.plot(entropies, pwins_lower, fill=True)
+        data = self.as_array()
+        plt.plot(data[0], data[1], fill=True)  # lower
+        plt.plot(data[0], data[2], fill=True)  # upper
 
         plt.xlabel('entropy')
         plt.ylabel('pwin')

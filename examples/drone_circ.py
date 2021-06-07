@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import csv
 import time
 import random
-from itertools import product
+import socket
+import signal
+from contextlib import contextmanager
+from itertools import product, combinations_with_replacement
 from functools import reduce
 from typing import Tuple
 
@@ -15,15 +19,39 @@ import aiger_gridworld as GW
 import attr
 import mdd as MDD
 import networkx as nx
+import numpy as np
 from aiger_discrete.mdd import to_mdd
 from blessings import Terminal
 from dd.cudd import BDD  # <---- Make sure CUDD backend available.
 from mdd.nx import to_nx
+from tqdm import tqdm
 
 from improvisers.explicit import ExplicitDist
 from improvisers.policy import solve
 from improvisers.pareto_critic import ParetoCritic
 from improvisers.tabular import TabularCritic
+
+
+def raise_timeout(signum, frame):
+    raise TimeoutError
+
+
+@contextmanager
+def timeout(time):
+    # Register a function to raise a TimeoutError on the signal.
+    signal.signal(signal.SIGALRM, raise_timeout)
+    # Schedule the signal to be sent after ``time``.
+    signal.alarm(time)
+
+    try:
+        yield
+    except TimeoutError:
+        print('TIMEOUT')
+    finally:
+        # Unregister the signal so it won't be triggered
+        # if the timeout is not reached.
+        signal.signal(signal.SIGALRM, signal.SIG_IGN)
+
 
 
 TERM = Terminal()
@@ -124,7 +152,13 @@ def state_combiner(dim: int):
 def battery(n: int=3):
     drain1 = BV.uatom(1, 'drain1')
     drain2 = BV.uatom(1, 'drain2')
-    drain = BV.ite(BV.uatom(1, 'choose_drain'), drain1, drain2)
+    #drain = BV.ite(BV.uatom(1, 'choose_drain'), drain1, drain2)  # SG
+
+    # -- MDP Version.
+    dont_care = drain2 | 1
+    drain = BV.ite(BV.uatom(1, 'choose_drain'), drain1, drain1)
+    drain &= dont_care
+
     level = BV.uatom(n, 'lvl')
     update = BV.ite(drain, level >> 1, level).with_output('lvl')
     init = BV.encode_int(n, 1 << n - 1, signed=False)
@@ -229,8 +263,8 @@ def feature_sensor(dim):
 
 def dont_crash():
     # Circuit monitoring crashed predicate never occurs.
-    test = LTL.parse('H ~((crashed | swapped) | batteryDead)')
-    #test = LTL.parse('H ~crashed')
+    #test = LTL.parse('H ~((crashed | swapped) | batteryDead)')
+    test = LTL.parse('H ~(crashed | swapped)')
     return BVExpr(test.aigbv)
 
 
@@ -281,8 +315,8 @@ def p2_patrol_policy(dim):
 
     update = BV.ite(
         p2_in_goal,
-        #BV.ite(turn_around, action + 2, action + 1),  # Stochastic
-        BV.ite(turn_around, action + 1, action + 1),  # Deterministic
+        BV.ite(turn_around, action + 2, action + 1),  # Stochastic
+        #BV.ite(turn_around, action + 1, action + 1),  # Deterministic
         action,
     ).with_output('a₂').aigbv
 
@@ -333,7 +367,6 @@ def monitor2mdd(monitor, horizon):
         for action in ['a₁', '🗘', '🎲₁', '🎲₂']:
             order.append(f'{action}##time_{t}')
     mdd = to_mdd(pred)
-    breakpoint()
     return mdd
 
 
@@ -509,12 +542,9 @@ def lifted_policy(actor, horizon):
                 assert time > t
                 actions = yield random.choice(list(int2action.inv))
                 print(t, time, actions['a₁'])
-    
 
-def main():
-    dim = 5
-    horizon = 15
 
+def build(dim, horizon):
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
     workspace <<= p2_patrol_policy(dim)  # Constrain p2.
@@ -524,61 +554,107 @@ def main():
         'keep_output': True,
     })
 
-    if True:
-        spec = guarantees()
+    spec = guarantees()
 
-        monitor = BV.AIGBV.cone(workspace >> spec, 'guarantees')
-        # HACK: swap out aig for lazy aig for unrolling.
-        # This avoids unnecessary aiger compositions.
-        monitor_aigbv = attr.evolve(monitor.circ, aig=monitor.aigbv.aig.lazy_aig)
-        monitor = attr.evolve(monitor, circ=monitor_aigbv)
-        # End of Hack
+    monitor = BV.AIGBV.cone(workspace >> spec, 'guarantees')
+    # HACK: swap out aig for lazy aig for unrolling.
+    # This avoids unnecessary aiger compositions.
+    monitor_aigbv = attr.evolve(monitor.circ, aig=monitor.aigbv.aig.lazy_aig)
+    monitor = attr.evolve(monitor, circ=monitor_aigbv)
+    # End of Hack
 
-        #mdd = monitor2mdd(monitor, horizon)
-        #breakpoint()
+    print('building BDD')
+    start = time.time()
+    mdd = monitor2bdd2mdd(monitor, horizon)
+    print(mdd.bdd.dag_size)
+    dt = time.time() - start
 
-        #bdd = monitor2bdd(monitor, horizon)
-        print('building BDD')
-        mdd = monitor2bdd2mdd(monitor, horizon)
-        print(mdd.bdd.dag_size)
-        print('building converting into game graph')
-        graph = to_nx(mdd, symbolic_edges=True)
-        print(len(graph))
+    import bdd2dfa
+    breakpoint()
 
-        print('solving game with psat = 0.8')
-        game = DroneGameGraph(graph)
-        #critic = ParetoCritic.from_game_graph(game, tol=1e-2)
-        import time
-        start = time.time()
-        #curve = critic.pareto(game.root)
-        try:
-            actor = solve(game, psat=0.8, percent_entropy=0.8)
-        except:
-            pass
-            #actor = solve(game, psat=0.8)
-        print(time.time() - start)
+    print('building converting into game graph')
+    graph = to_nx(mdd, symbolic_edges=True)
+    print(len(graph))
+
+    return DroneGameGraph(graph), dt, mdd.bdd.dag_size
 
 
-    while True:
-        input('run?')
-        policy = lifted_policy(actor, horizon)
-        sim = workspace.simulator()
-        next(sim)
 
-        actions = None
-        with TERM.hidden_cursor():
-            for i in range(horizon):
-                p1_action = policy.send(actions)
-                actions = {'a₁': p1_action, '🗘': 0, '🎲₁': 0, '🎲₂': 0}
-                output = sim.send(actions)[0]
+def benchmark(game, dim, horizon, psat, percent_entropy):
+    print(f'solving game {dim=} {horizon=} with ({psat=}, rand={percent_entropy=})')
 
-                state = output['state']
+    #critic = ParetoCritic.from_game_graph(game, tol=1e-2)
 
-                print(f"{TERM.clear}{GridState(dim, state).board}")
-                del output['state']
-                print(output)
-                print(f'time={i}')
-                time.sleep(1)
+    start = time.time()
+    #curve = critic.pareto(game.root)
+    actor = None
+    try:
+        actor = solve(game, psat=psat, percent_entropy=percent_entropy)
+    except ValueError as e:
+        print(e)
+        #actor = solve(game, psat=0.8) 
+    dt = time.time() - start
+    return {
+        'sat': actor is not None, 
+        'solve time': dt,
+    }
+
+MAX_TIME = 60 * 8  # 8 minute timeout.
+
+
+def instances():
+    dims = range(7, 8)
+    #horizons = range(10, 18)
+    horizons = range(30, 50, 5)
+    points = np.linspace(0, 1, 10)
+    for dim, horizon in product(dims, horizons):
+        game_and_stats = build(dim, horizon)
+        for p, q in combinations_with_replacement(points, 2):
+            yield game_and_stats, dim, horizon, p, q
+
+def main():
+    with open('experiments.csv', 'w', newline='') as csvfile:
+        fieldnames = ['dim', 'horizon', 'perf', 'rand', 'sat', 'BDD size', 'BDD time', 'solve time']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+
+        queries = instances()
+        total = 4 * 8 * 100
+        for (game, bdd_time, bdd_size), dim, horizon, p, h in tqdm(queries, total=total):
+            try:
+                with timeout(MAX_TIME):
+                    row = benchmark(game=game, dim=dim, horizon=horizon, psat=p, percent_entropy=h)
+                    print(row)
+                    row.update({'dim': dim, 'horizon': horizon,
+                                'perf': p, 'rand': h,
+                                'BDD size': bdd_size,
+                                'BDD time': bdd_time})
+                    writer.writerow(row)
+            except Exception as e:
+                print(e)
+            csvfile.flush()
+
+
+    # while False:  # Turn to True to enable.
+    #     input('run?')
+    #     policy = lifted_policy(actor, horizon)
+    #     sim = workspace.simulator()
+    #     next(sim)
+
+    #     actions = None
+    #     with TERM.hidden_cursor():
+    #         for i in range(horizon):
+    #             p1_action = policy.send(actions)
+    #             actions = {'a₁': p1_action, '🗘': 0, '🎲₁': 0, '🎲₂': 0}
+    #             output = sim.send(actions)[0]
+
+    #             state = output['state']
+
+    #             print(f"{TERM.clear}{GridState(dim, state).board}")
+    #             del output['state']
+    #             print(output)
+    #             print(f'time={i}')
+    #             time.sleep(1)
                 
 
 
