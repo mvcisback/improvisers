@@ -92,10 +92,16 @@ class ParetoCurve:
         return key in self.data
 
     def entropy_bounds(self, key: float) -> Interval:
-        pass
+        return Interval(
+            low=self.data[key] if key in self.data else 0,
+            high=self.data[key] if key in self.data else oo,
+        )
 
     def psat_bounds(self, key: float) -> Interval:
-        pass
+        return Interval(
+            low=self.data[key] if key in self.data else 0,
+            high=self.data[key] if key in self.data else 1,
+        )
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
