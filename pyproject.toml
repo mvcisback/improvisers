@@ -13,6 +13,7 @@ scipy = "^1.5.4"
 monotone-bipartition = "^0.3.0"
 bidict = "^0.21.2"
 plotext = "^2.2.2"
+sortedcontainers = "^2.4.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

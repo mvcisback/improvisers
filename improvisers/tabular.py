@@ -10,6 +10,7 @@ import attr
 import numpy as np
 from scipy.special import logsumexp, softmax
 from scipy.optimize import brentq
+from sortedcontainers import SortedDict
 
 from improvisers.game_graph import GameGraph, Node
 from improvisers.critic import Critic, Distribution, DistLike
@@ -50,18 +51,43 @@ def binary_search(
     return lo + (hi - lo) / 2
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True, slots=True)
+class PPoint:
+    entropy: float
+    lsat: float
+
+    @property
+    def psat(self) -> float:
+        sat_prob = math.exp(self.lsat)
+        assert sat_prob < 1.2
+        return min(sat_prob, 1)  # Clip at 1 due to numerics.
+
+    
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True, slots=True)
+class ParetoCurve:
+    data: Mapping[float, PPoint] = attr.ib(factory=SortedDict)
+
+    def __getitem__(self, key: float) -> PPoint:
+        return self.data[key]
+
+    def __setitem__(self, key: float, value: PPoint):
+        assert (key not in self.data) or (value == self[key])
+
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class TabularCritic:
     game: GameGraph
+    val_cache: Dict[(Node, float), float] = attr.ib(factory=dict)
+    pareto_curves: Dict[Node, ParetoCurve] = attr.ib(factory=dict)
     # cache: Cache = attr.ib(factory=Cache)
     #_min_ent_moves: Dict[Node, List[Node]] = attr.ib(factory=dict)
 
-    @lru_cache
+    def __hash__(self) -> int:
+        # TODO: Remove
+        return hash(self.game)
+    
     def min_ent_moves(self, node: Node) -> List[Node]:
         """Return moves which minimizes the *achievable* entropy."""
-        #if node in self._min_ent_moves:
-        #    return self._min_ent_moves[node]
-
         moves, worst = [], oo
         for node2 in self.game.moves(node):
             entropy = self.entropy(node2, 0)
@@ -69,7 +95,6 @@ class TabularCritic:
                 moves, worst = [node2], entropy
             elif entropy == worst:
                 moves.append(node2)
-        #self._min_ent_moves[node] = moves
         return moves
 
     def min_ent_move(self, node: Node, rationality: float) -> Node:
@@ -118,8 +143,14 @@ class TabularCritic:
 
         return p2_move, rationality
 
-    @lru_cache(maxsize=None)
     def value(self, node: Node, rationality: float) -> float:
+        if (node, rationality) not in self.val_cache:
+            self.val_cache[node, rationality] = self._value(
+                node=node, rationality=rationality
+            )
+        return self.val_cache[node, rationality]
+    
+    def _value(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
 
         if isinstance(label, bool):              # Terminal node.
@@ -140,15 +171,21 @@ class TabularCritic:
         probs = [dist.prob(move) for move in moves]
         return np.average(values, weights=probs)
 
-    @lru_cache(maxsize=None)
+    def ppoint(self, node: Node, rationality: float) -> float:
+       return PPoint(
+           entropy=self._entropy(node, rationality),
+           lsat=self._lsat(node, rationality),
+       ) 
+
     def lsat(self, node_dist: DistLike, rationality: float) -> float:
         if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
             dist = node_dist
             probs = [dist.prob(n) for n in dist.support()]
             lsats = [self.lsat(n, rationality) for n in dist.support()]
             return logsumexp(lsats, b=probs)
-        node = node_dist
+        return self.ppoint(node_dist, rationality).lsat
 
+    def _lsat(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
         if isinstance(label, bool):
             return 0 if label else -oo
@@ -162,10 +199,8 @@ class TabularCritic:
         return self.lsat(node_dist2, rationality)
 
     def psat(self, node: Node, rationality: float) -> float:
-        sat_prob = math.exp(self.lsat(node, rationality))
-        assert sat_prob < 1.2
-        return min(sat_prob, 1)  # Clip at 1 due to numerics.
-
+        return self.ppoint(node, rationality).psat
+        
     def _rationality(self, node: Node, target: float,
                      match_entropy: bool = False,
                      num_iter: int = 5) -> float:
@@ -202,7 +237,6 @@ class TabularCritic:
     def match_psat(self, node: Node, target: float) -> float:
         return self._rationality(node, target, match_entropy=False)
 
-    @lru_cache(maxsize=None)
     def entropy(self, node_dist: DistLike, rationality: float) -> float:
         if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
             dist = node_dist
@@ -211,8 +245,9 @@ class TabularCritic:
             for node in dist.support():
                 entropy += dist.prob(node) * self.entropy(node, rationality)
             return entropy
+        return self.ppoint(node_dist, rationality).entropy
 
-        node = node_dist
+    def _entropy(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
         if isinstance(label, bool):
             return 0.0  # Terminal node has no entropy.

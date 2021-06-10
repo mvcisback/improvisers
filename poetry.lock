@@ -33,7 +33,7 @@ tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>
 
 [[package]]
 name = "bdd2dfa"
-version = "1.0.3"
+version = "1.0.8"
 description = "Python library for converting binary decision diagrams to automata."
 category = "dev"
 optional = false
@@ -669,9 +669,9 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "sortedcontainers"
-version = "2.3.0"
+version = "2.4.0"
 description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -723,7 +723,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "e8003f318658d256eb1ad973cdcd015868d95515c0ba05a9b818899bb36ca0b9"
+content-hash = "827abcc78d5a83bcd3c1f9e094eeb5757b89b176310659b1ccfc7a8294ee8106"
 
 [metadata.files]
 astutils = [
@@ -738,8 +738,8 @@ attrs = [
     {file = "attrs-20.3.0.tar.gz", hash = "sha256:832aa3cde19744e49938b91fea06d69ecb9e649c93ba974535d08ad92164f700"},
 ]
 bdd2dfa = [
-    {file = "bdd2dfa-1.0.3-py3-none-any.whl", hash = "sha256:d7194b3028ce001ed3331d3ba3d30b8935729619822ab8c373797359b8dcd72b"},
-    {file = "bdd2dfa-1.0.3.tar.gz", hash = "sha256:5764f94a258a1aa5e9d851f5575b8cb9044e299a5fa0dc0280104a7767c5e573"},
+    {file = "bdd2dfa-1.0.8-py3-none-any.whl", hash = "sha256:7ebe5114e600d14a1bfb9c0d6918713fecec2057bd856d4ef97ea76975593a5d"},
+    {file = "bdd2dfa-1.0.8.tar.gz", hash = "sha256:e7e4b3c4e0597f182588e64ead464d057d679fb9db0a00fea86008c6d73e4bd5"},
 ]
 bidict = [
     {file = "bidict-0.21.2-py2.py3-none-any.whl", hash = "sha256:929d056e8d0d9b17ceda20ba5b24ac388e2a4d39802b87f9f4d3f45ecba070bf"},
@@ -851,6 +851,7 @@ lenses = [
     {file = "lenses-1.1.0.tar.gz", hash = "sha256:c905833f892dcef45de4411a43f1ff30937748157b6ab5181fca063bb095ce81"},
 ]
 mako = [
+    {file = "Mako-1.1.4-py2.py3-none-any.whl", hash = "sha256:aea166356da44b9b830c8023cd9b557fa856bd8b4035d6de771ca027dfc5cc6e"},
     {file = "Mako-1.1.4.tar.gz", hash = "sha256:17831f0b7087c313c0ffae2bcbbd3c1d5ba9eeac9c38f2eb7b50e8c99fe9d5ab"},
 ]
 markdown = [
@@ -1121,8 +1122,8 @@ six = [
     {file = "six-1.15.0.tar.gz", hash = "sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259"},
 ]
 sortedcontainers = [
-    {file = "sortedcontainers-2.3.0-py2.py3-none-any.whl", hash = "sha256:37257a32add0a3ee490bb170b599e93095eed89a55da91fa9f48753ea12fd73f"},
-    {file = "sortedcontainers-2.3.0.tar.gz", hash = "sha256:59cc937650cf60d677c16775597c89a960658a09cf7c1a668f86e1e4464b10a1"},
+    {file = "sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"},
+    {file = "sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88"},
 ]
 toposort = [
     {file = "toposort-1.6-py2.py3-none-any.whl", hash = "sha256:2ade83028dd067a1d43c142469cbaf4136b92fdc1c4303f16c40f126442fdaf3"},
