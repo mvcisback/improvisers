@@ -131,14 +131,7 @@ class TabularCritic:
 
     def min_ent_move(self, node: Node, rationality: float) -> Node:
         moves = self.min_ent_moves(node)
-
-        # Optimization. If all values are the same, the resulting
-        # policy will assign same probability to transitioning to this
-        # node. Commonly happens when two subtrees are equivalent.
-        val0 = self.value(moves[0], 0)
-
-        other_vals = (self.value(move, 0) for move in moves[1:])
-        if all(val == val0 for val in other_vals):
+        if len(moves) == 1:
             return moves[0]
 
         # Break ties with psat.
@@ -149,6 +142,7 @@ class TabularCritic:
         #   need note be updated since entropy is already matched.
         # Note 3: This step cannot be cached since psat will, in general,
         #   depend on the rationality.
+        # TODO: Should check intervals first.
         return min(moves, key=lambda n: self.psat(n, rationality))
 
     def min_psat_move(
