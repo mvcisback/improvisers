@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from typing import Hashable, List, Tuple, Dict, Callable, Optional, Literal
 from typing import Union
 from functools import lru_cache, partial
@@ -71,16 +72,20 @@ class ParetoCurve:
         return self.data[key]
 
     def __setitem__(self, key: float, value: PPoint):
-        assert (key not in self.data) or (value == self[key])
+        assert (key not in self) or (value == self[key])
+        self.data[key] = value
+
+    def __contains__(self, key: float) -> bool:
+        return key in self.data
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class TabularCritic:
     game: GameGraph
     val_cache: Dict[(Node, float), float] = attr.ib(factory=dict)
-    pareto_curves: Dict[Node, ParetoCurve] = attr.ib(factory=dict)
-    # cache: Cache = attr.ib(factory=Cache)
-    #_min_ent_moves: Dict[Node, List[Node]] = attr.ib(factory=dict)
+    pareto_curves: Dict[Node, ParetoCurve] = attr.ib(
+        factory=lambda: defaultdict(ParetoCurve)
+    )
 
     def __hash__(self) -> int:
         # TODO: Remove
@@ -172,10 +177,13 @@ class TabularCritic:
         return np.average(values, weights=probs)
 
     def ppoint(self, node: Node, rationality: float) -> float:
-       return PPoint(
-           entropy=self._entropy(node, rationality),
-           lsat=self._lsat(node, rationality),
-       ) 
+        curve = self.pareto_curves[node]
+        if rationality not in curve:
+            curve[rationality] = PPoint(
+                entropy=self._entropy(node, rationality),
+                lsat=self._lsat(node, rationality),
+            ) 
+        return curve[rationality]
 
     def lsat(self, node_dist: DistLike, rationality: float) -> float:
         if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
