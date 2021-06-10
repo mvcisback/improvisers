@@ -24,20 +24,24 @@ def test_stochastic_game_critic():
     coeff = math.log(8)
 
     assert critic.value(0, coeff) == 0
-    assert critic.value(1, coeff) == coeff
-    assert critic.value(2, coeff) == approx(math.log(2))
-    assert critic.value(3, coeff) == approx(math.log(3))
-    assert critic.value(4, coeff) == approx(math.log(2))
-    assert critic.value(5, coeff) == approx(math.log(5))
-
     assert critic.entropy(0, coeff) == 0
+
+    assert critic.value(1, coeff) == coeff
     assert critic.entropy(1, coeff) == 0
+
+    assert critic.value(2, coeff) == approx(math.log(2))
     assert critic.entropy(2, coeff) == 0
+
+    assert critic.value(3, coeff) == approx(math.log(3))
     assert critic.entropy(3, coeff) == approx(
         2/3*(math.log(3/2) + critic.entropy(2, coeff)) + 
         1/3*(math.log(3)   + 0                       )
     )
+
+    assert critic.value(4, coeff) == approx(math.log(2))
     assert critic.entropy(4, coeff) == critic.entropy(2, coeff)
+
+    assert critic.value(5, coeff) == approx(math.log(5))
     assert critic.entropy(5, coeff) == approx(
         3/5*(math.log(5/3) + critic.entropy(3, coeff)) +
         2/5*(math.log(5/2) + critic.entropy(2, coeff))

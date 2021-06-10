@@ -55,13 +55,7 @@ def binary_search(
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True, slots=True)
 class PPoint:
     entropy: float
-    lsat: float
-
-    @property
-    def psat(self) -> float:
-        sat_prob = math.exp(self.lsat)
-        assert sat_prob < 1.2
-        return min(sat_prob, 1)  # Clip at 1 due to numerics.
+    psat: float
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True, order=False)
@@ -76,33 +70,53 @@ class Itvl:
     def size(self) -> float:
         return self.high - self.low
 
+
+
+def psat(lsat) -> float:
+    sat_prob = math.exp(lsat)
+    assert sat_prob < 1.2
+    return min(sat_prob, 1)  # Clip at 1 due to numerics.
+
     
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class ParetoCurve:
-    data: Mapping[float, PPoint] = attr.ib(factory=SortedDict)
+    entropies: Mapping[float, float] = attr.ib(factory=SortedDict)
+    lsats: Mapping[float, float] = attr.ib(factory=SortedDict)
 
     def __getitem__(self, key: float) -> PPoint:
-        return self.data[key]
-
-    def __setitem__(self, key: float, value: PPoint):
-        assert (key not in self) or (value == self[key])
-        self.data[key] = value
+        if key in self:
+            raise KeyError
+        return PPoint(self.entropies[key], self.lsats[key])
 
     def __contains__(self, key: float) -> bool:
-        return key in self.data
+        return (key in self.entropies) and (key in self.psats)
 
     def entropy_bounds(self, key: float) -> Itvl:
-        return Itvl(
-            low=self.data[key] if key in self.data else 0,
-            high=self.data[key] if key in self.data else oo,
-        )
+        if key in self.entropies:
+            ent = self.entropies[key]
+            return Itvl(ent, ent)
+
+        # Compute montonicity bound.
+        idx = self.entropies.bisect_left(key)
+        size = len(self.entropies)
+        low, high = 0.0, oo
+        
+        if size == 0:    # Bounds can't be tightened.
+            return Itvl(low, high)
+
+        if idx == 0:     # Found lower bound.
+            low = self.entropies.values()[idx]
+
+        if idx == size:  # Found upper bound. 
+            high = self.entropies.values()[idx - 1]
+        return Itvl(low, high)
 
     def psat_bounds(self, key: float, entropy: Optional[float] = None) -> Itvl:
         # TODO: high should actually be computed by intersecting with
         # the tangent.
         return Itvl(
-            low=self.data[key] if key in self.data else 0,
-            high=self.data[key] if key in self.data else 1,
+            low=lsat(self.lsats[key]) if key in self.data else 0,
+            high=lsat(self.lsats[key]) if key in self.data else 1,
         )
 
 
@@ -118,28 +132,41 @@ class TabularCritic:
         # TODO: Remove
         return hash(self.game)
     
+    @lru_cache(maxsize=None)
     def min_ent_moves(self, node: Node, rationality: float) -> List[Node]:
         """Return moves which minimizes the *achievable* entropy."""
         moves = list(self.game.moves(node))
-        worst = self.pareto_curves[moves[0]].entropy_bounds(rationality)
-
-        while len(moves) > 1 and worst.size > 0:
+        while True:
             # Pruning Phase.
-            for node2 in moves:
-                itvl = self.pareto_curves[node2].entropy_bounds(rationality)
-                if itvl < worst:
-                    moves, worst = [node2], itvl
-                elif not (worst < itvl):  # Intersection.
-                    moves.append(node2)
+            move2itvl = {}
+            for move in moves:
+                itvl = self.pareto_curves[move].entropy_bounds(rationality)
+                move2itvl[move] =  itvl
 
+            # TODO: optimize
+            for move in moves:
+                if move not in move2itvl:
+                    continue
+                itvl = move2itvl[move]
+                if any(itvl2 < itvl for itvl2 in move2itvl.values()):
+                    del move2itvl[move]  # Delete dominated move
+
+            moves = list(move2itvl.keys())
+
+            if len(moves) == 1:
+                break  # Only one move left.
+
+            elif all(itvl.size == 0 for ivtl in move2itvl.values()):
+                break  # Collapsed to multiple singletons.
+ 
             # Refinement Phase.
-            most_uncertain = max(moves, key=lambda m: m.size) 
+            most_uncertain = max(moves, key=lambda m: move2itvl[m].size) 
             self.entropy(most_uncertain, rationality)  # Collapse interval.
 
         return moves
 
     def min_ent_move(self, node: Node, rationality: float) -> Node:
-        moves = self.min_ent_moves(node)
+        moves = self.min_ent_moves(node, rationality)
         if len(moves) == 1:
             return moves[0]
 
@@ -156,12 +183,12 @@ class TabularCritic:
 
     def min_psat_move(
             self, node: Node, rationality: float) -> Tuple[Node, float]:
+        
         assert self.game.label(node) == 'p2'
 
         # Compute entropy of planned move.
         planned_move = self.min_ent_move(node, rationality)
         entropy = self.entropy(planned_move, rationality)
-
         # p1 will increase rationality until target entropy matched.
         def replanned_psat(move: Node) -> float:
             replanned_rationality = rationality
@@ -221,7 +248,11 @@ class TabularCritic:
             probs = [dist.prob(n) for n in dist.support()]
             lsats = [self.lsat(n, rationality) for n in dist.support()]
             return logsumexp(lsats, b=probs)
-        return self.ppoint(node_dist, rationality).lsat
+
+        lsats = self.pareto_curves[node_dist].lsats
+        if rationality not in lsats:
+            lsats[rationality] = self._lsat(node_dist, rationality)
+        return lsats[rationality] 
 
     def _lsat(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
@@ -237,7 +268,7 @@ class TabularCritic:
         return self.lsat(node_dist2, rationality)
 
     def psat(self, node: Node, rationality: float) -> float:
-        return self.ppoint(node, rationality).psat
+        return psat(self.lsat(node, rationality))
         
     def _rationality(self, node: Node, target: float,
                      match_entropy: bool = False,
@@ -283,7 +314,11 @@ class TabularCritic:
             for node in dist.support():
                 entropy += dist.prob(node) * self.entropy(node, rationality)
             return entropy
-        return self.ppoint(node_dist, rationality).entropy
+
+        entropies = self.pareto_curves[node_dist].entropies
+        if rationality not in entropies:
+            entropies[rationality] = self._entropy(node_dist, rationality)
+        return entropies[rationality] 
 
     def _entropy(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
