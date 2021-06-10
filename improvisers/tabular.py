@@ -118,15 +118,24 @@ class TabularCritic:
         # TODO: Remove
         return hash(self.game)
     
-    def min_ent_moves(self, node: Node) -> List[Node]:
+    def min_ent_moves(self, node: Node, rationality: float) -> List[Node]:
         """Return moves which minimizes the *achievable* entropy."""
-        moves, worst = [], oo
-        for node2 in self.game.moves(node):
-            entropy = self.entropy(node2, 0)
-            if entropy < worst:
-                moves, worst = [node2], entropy
-            elif entropy == worst:
-                moves.append(node2)
+        moves = list(self.game.moves(node))
+        worst = self.pareto_curves[moves[0]].entropy_bounds(rationality)
+
+        while len(moves) > 1 and worst.size > 0:
+            # Pruning Phase.
+            for node2 in moves:
+                itvl = self.pareto_curves[node2].entropy_bounds(rationality)
+                if itvl < worst:
+                    moves, worst = [node2], itvl
+                elif not (worst < itvl):  # Intersection.
+                    moves.append(node2)
+
+            # Refinement Phase.
+            most_uncertain = max(moves, key=lambda m: m.size) 
+            self.entropy(most_uncertain, rationality)  # Collapse interval.
+
         return moves
 
     def min_ent_move(self, node: Node, rationality: float) -> Node:
