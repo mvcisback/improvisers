@@ -63,8 +63,21 @@ class PPoint:
         assert sat_prob < 1.2
         return min(sat_prob, 1)  # Clip at 1 due to numerics.
 
+
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True, order=False)
+class Interval:
+    low: float
+    high: float
+
+    def __lt__(self, other: Interval):
+        return self.high < other.low
+
+    @property
+    def size(self) -> float:
+        return self.high - self.low
+
     
-@attr.s(auto_attribs=True, auto_detect=True, frozen=True, slots=True)
+@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class ParetoCurve:
     data: Mapping[float, PPoint] = attr.ib(factory=SortedDict)
 
@@ -78,13 +91,19 @@ class ParetoCurve:
     def __contains__(self, key: float) -> bool:
         return key in self.data
 
+    def entropy_bounds(self, key: float) -> Interval:
+        pass
+
+    def psat_bounds(self, key: float) -> Interval:
+        pass
+
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class TabularCritic:
     game: GameGraph
-    val_cache: Dict[(Node, float), float] = attr.ib(factory=dict)
+    val_cache: Dict[(Node, float), float] = attr.ib(factory=dict, eq=False)
     pareto_curves: Dict[Node, ParetoCurve] = attr.ib(
-        factory=lambda: defaultdict(ParetoCurve)
+        factory=lambda: defaultdict(ParetoCurve), eq=False
     )
 
     def __hash__(self) -> int:
