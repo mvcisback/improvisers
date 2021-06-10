@@ -65,11 +65,11 @@ class PPoint:
 
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True, order=False)
-class Interval:
+class Itvl:
     low: float
     high: float
 
-    def __lt__(self, other: Interval):
+    def __lt__(self, other: Itvl):
         return self.high < other.low
 
     @property
@@ -91,14 +91,16 @@ class ParetoCurve:
     def __contains__(self, key: float) -> bool:
         return key in self.data
 
-    def entropy_bounds(self, key: float) -> Interval:
-        return Interval(
+    def entropy_bounds(self, key: float) -> Itvl:
+        return Itvl(
             low=self.data[key] if key in self.data else 0,
             high=self.data[key] if key in self.data else oo,
         )
 
-    def psat_bounds(self, key: float) -> Interval:
-        return Interval(
+    def psat_bounds(self, key: float, entropy: Optional[float] = None) -> Itvl:
+        # TODO: high should actually be computed by intersecting with
+        # the tangent.
+        return Itvl(
             low=self.data[key] if key in self.data else 0,
             high=self.data[key] if key in self.data else 1,
         )
