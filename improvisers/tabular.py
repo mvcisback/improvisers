@@ -131,17 +131,16 @@ class TabularCritic:
     def __hash__(self) -> int:
         # TODO: Remove
         return hash(self.game)
-    
-    @lru_cache(maxsize=None)
-    def min_ent_moves(self, node: Node, rationality: float) -> List[Node]:
+
+    def _moves(self, get_bounds, refine, node: Node, rationality: float) -> List[Node]:
         """Return moves which minimizes the *achievable* entropy."""
         moves = list(self.game.moves(node))
         while True:
             # Pruning Phase.
             move2itvl = {}
             for move in moves:
-                itvl = self.pareto_curves[move].entropy_bounds(rationality)
-                move2itvl[move] =  itvl
+                itvl = get_bounds(move, rationality)
+                move2itvl[move] = itvl
 
             # TODO: optimize
             for move in moves:
@@ -161,9 +160,19 @@ class TabularCritic:
  
             # Refinement Phase.
             most_uncertain = max(moves, key=lambda m: move2itvl[m].size) 
-            self.entropy(most_uncertain, rationality)  # Collapse interval.
+            refine(most_uncertain, rationality)  # Collapse interval.
 
         return moves
+    
+    @lru_cache(maxsize=None)
+    def min_ent_moves(self, node: Node, rationality: float) -> List[Node]:
+        """Return moves which minimizes the *achievable* entropy."""
+        return self._moves(
+            get_bounds=lambda m, x: self.pareto_curves[m].entropy_bounds(x),
+            refine=self.entropy,
+            node=node,
+            rationality=rationality,
+        )
 
     def min_ent_move(self, node: Node, rationality: float) -> Node:
         moves = self.min_ent_moves(node, rationality)
@@ -189,6 +198,10 @@ class TabularCritic:
         # Compute entropy of planned move.
         planned_move = self.min_ent_move(node, rationality)
         entropy = self.entropy(planned_move, rationality)
+
+        # TODO: try to determine all move psats.
+        moves = self.game.moves(node)
+
         # p1 will increase rationality until target entropy matched.
         def replanned_psat(move: Node) -> float:
             replanned_rationality = rationality
@@ -197,7 +210,6 @@ class TabularCritic:
             return self.psat(move, max(replanned_rationality, 0))
 
         # p2 will take the minimum psat of the replanned moves.
-        moves = self.game.moves(node)
         p2_move = min(moves, key=replanned_psat)
 
         if rationality < oo:
