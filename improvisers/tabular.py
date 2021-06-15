@@ -87,6 +87,15 @@ class ParetoCurve:
     entropies: Mapping[float, float] = attr.ib(factory=SortedDict)
     lsats: Mapping[float, Itvl] = attr.ib(factory=SortedDict)
 
+    @staticmethod
+    def new(node: Node, critic: Critic) -> ParetoCurve:
+        curve = ParetoCurve()
+        curve.entropies[0] = critic._entropy(node, 0)
+        curve.entropies[oo] = critic._entropy(node, oo)
+        curve.lsats[0] = critic._lsat(node, 0)
+        curve.lsats[oo] = critic._lsat(node, oo)
+        return curve
+
     def __getitem__(self, key: float) -> PPoint:
         if key in self:
             raise KeyError
@@ -103,26 +112,28 @@ class ParetoCurve:
         # Compute montonicity bound.
         idx = self.entropies.bisect_left(key)
         size = len(self.entropies)
-        low, high = 0.0, oo
-        
-        if size == 0:    # Bounds can't be tightened.
-            return Itvl(low, high)
+        assert idx not in (0, size)
 
-        if idx == 0:     # Found lower bound.
-            low = self.entropies.values()[idx]
-
-        if idx == size:  # Found upper bound. 
-            high = self.entropies.values()[idx - 1]
+        low = self.entropies.values()[idx]
+        high = self.entropies.values()[idx - 1]
         return Itvl(low, high)
 
     def lsat_bounds(self, key: Optional[float] = None, entropy: Optional[float] = None) -> Itvl:
         if key in self.lsats:
             return self.lsats[key]
-
+        if (key is None) == (entropy is None):
+            raise ValueError
+        elif key is None:
+            raise NotImplementedError
+        else:
+            pass
         raise NotImplementedError
 
     def psat_bounds(self, key: Optional[float] = None, entropy: Optional[float] = None) -> Itvl:
         return psat(self.lsat_bounds(key, entropy))
+
+    def psat_edge(self, entropy: float) -> Tuple[float, float]:
+        raise NotImplementedError
 
     def next_psat_key(self, entropy: float) -> float:
         if 0 not in self.lsats:
@@ -143,13 +154,16 @@ class ParetoCurve:
 class TabularCritic:
     game: GameGraph
     val_cache: Dict[(Node, float), float] = attr.ib(factory=dict, eq=False)
-    pareto_curves: Dict[Node, ParetoCurve] = attr.ib(
-        factory=lambda: defaultdict(ParetoCurve), eq=False
-    )
+    pareto_curves: Dict[Node, ParetoCurve] = attr.ib(factory=dict, eq=False)
 
     def __hash__(self) -> int:
         # TODO: Remove
         return hash(self.game)
+
+    def curve(self, node: Node) -> ParetoCurve:
+        if node not in self.pareto_curves:
+            self.pareto_curves[node] = ParetoCurve.new(node, self)
+        return self.pareto_curves[node]
 
     def _moves(self, get_bounds, refine, node: Node, key: float, moves=None) -> List[Node]:
         """Return moves which minimizes the *achievable* entropy."""
@@ -188,7 +202,7 @@ class TabularCritic:
     @lru_cache(maxsize=None)
     def min_ent_move(self, node: Node, rationality: float) -> Node:
         moves = self._moves(
-            get_bounds=lambda m, x: self.pareto_curves[m].entropy_bounds(x),
+            get_bounds=lambda m, x: self.curve(m).entropy_bounds(x),
             refine=self.entropy,
             node=node,
             key=rationality,
@@ -205,7 +219,7 @@ class TabularCritic:
         # Note 3: This step cannot be cached since psat will, in general,
         #   depend on the rationality.
         moves = self._moves(
-            get_bounds=lambda m, x: self.pareto_curves[m].psat_bounds(x),
+            get_bounds=lambda m, x: self.curve(m).psat_bounds(x),
             refine=self.psat,  # TODO: consider using angle.
             node=node,
             key=rationality,
@@ -221,15 +235,15 @@ class TabularCritic:
         planned_move = self.min_ent_move(node, rationality)
         entropy = self.entropy(planned_move, rationality)
 
-        curves = self.pareto_curves
+        curves = self.curve
 
         def refine(move: Node, entropy: float) -> float:
             # Halve rationality on corresponding edge.
-            rationality2 = curves[move].next_psat_key(entropy)
+            rationality2 = curves(move).next_psat_key(entropy)
             self._lsat(move, rationality2) 
 
         def psat_bounds(move: Node, rationality: float) -> Itvl:
-            return curves[move].psat_bounds(entropy=entropy)
+            return curves(move).psat_bounds(entropy=entropy)
 
         move = self._moves(
             get_bounds=psat_bounds,
@@ -278,7 +292,7 @@ class TabularCritic:
             high = logsumexp([x.high for x in lsats], b=probs)
             return Itvl(low, high) 
 
-        lsats = self.pareto_curves[node_dist].lsats
+        lsats = self.curve(node_dist).lsats
         if rationality not in lsats:
             lsats[rationality] = self._lsat(node_dist, rationality)
         return lsats[rationality] 
@@ -343,7 +357,7 @@ class TabularCritic:
                 entropy += dist.prob(node) * self.entropy(node, rationality)
             return entropy
 
-        entropies = self.pareto_curves[node_dist].entropies
+        entropies = self.curve(node_dist).entropies
         if rationality not in entropies:
             entropies[rationality] = self._entropy(node_dist, rationality)
         return entropies[rationality] 
