@@ -129,22 +129,42 @@ class ParetoCurve:
         high = self.entropies.values()[idx - 1]
         return Itvl(low, high)
 
-    def lsat_bounds(self, key: Optional[float] = None, entropy: Optional[float] = None) -> Itvl:
+    def psat_bounds(self, key: Optional[float] = None, entropy: Optional[float] = None) -> Itvl:
         if key in self.lsats:
-            return self.lsats[key]
+            return psat(self.lsats[key])
         if (key is None) == (entropy is None):
             raise ValueError
-        elif key is None:
-            edge = self.psat_edge(entropy)
-            if edge[0] == edge[1]:
-                return self.lsats[edge[0]]
-            
+        elif key is not None:
             raise NotImplementedError
-        
-        raise NotImplementedError
 
-    def psat_bounds(self, key: Optional[float] = None, entropy: Optional[float] = None) -> Itvl:
-        return psat(self.lsat_bounds(key, entropy))
+        edge = self.psat_edge(entropy)
+        if edge[0] == edge[1]:
+            return psat(self.lsats[edge[0]])
+
+        p0, p1 = self[edge[0]], self[edge[1]]
+
+        if p1.entropy == p2.entropy:  # Flat region.
+            assert p0.psat == p1.psat
+            return Itvl(p0.psat, p1.psat)
+
+        # Lower bound by convexity.
+        slope01 = (p1.psat - p0.psat) / (p1.entropy - p2.entropy)
+        assert edge[0] >= slope01 >= edge[1]
+        low = p0.psat + slope01 * (entropy - p0.entropy)
+
+        # Upper bound due to optimization direction.
+        if edge[0] == oo:
+            high0 = p0.psat
+        else:
+            high0 = p0.psat - edge[0] * (entropy - p0.entropy)
+
+        if edge[1] == oo:
+            high1 = p1.psat
+        else:
+            high1 = p1.psat + edge[1] * (entropy - p1.entropy)
+
+        upper = max(low, min(high0, high1))
+        return Itvl(low, high)
 
     def psat_edge(self, entropy: float) -> Tuple[float, float]:
         entropies = self.entropies.values()
