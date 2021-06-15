@@ -29,6 +29,17 @@ SearchCMD = Union[
 ]
 
 
+# https://stackoverflow.com/questions/29045162/binary-search-of-reversed-sorted-list-in-python
+def bisect(arr, val, cmp):
+    l = -1
+    r = len(arr)
+    while r - l > 1:
+        e = (l + r) >> 1
+        if cmp(arr[e], val): l = e
+        else: r = e
+    return r
+
+
 def binary_search(
         f: RealFunc, lo: float, hi: float, eps: float = 1e-2
 ) -> float:
@@ -124,30 +135,32 @@ class ParetoCurve:
         if (key is None) == (entropy is None):
             raise ValueError
         elif key is None:
+            edge = self.psat_edge(entropy)
+            if edge[0] == edge[1]:
+                return self.lsats[edge[0]]
+            
             raise NotImplementedError
-        else:
-            pass
+        
         raise NotImplementedError
 
     def psat_bounds(self, key: Optional[float] = None, entropy: Optional[float] = None) -> Itvl:
         return psat(self.lsat_bounds(key, entropy))
 
     def psat_edge(self, entropy: float) -> Tuple[float, float]:
-        raise NotImplementedError
-
-    def next_psat_key(self, entropy: float) -> float:
-        if 0 not in self.lsats:
-            return 0
-        elif oo not in self.lsats:
-            return oo
         entropies = self.entropies.values()
         coeffs = self.entropies.keys()
-        idx = bisect_left(entropies, entropy)
-        if entropies[idx] <= entropy:  # entropy already present.
+        idx = bisect(entropies, entropy, lambda x, y: x > y)
+        if entropies[idx] == entropy:  # entropy already present.
             assert entropies[idx] == entropy
-            return coeffs[idx]
-        assert entropies[idx - 1] < entropy < entropies[idx]
-        return (coeffs[idx - 1] + coeffs[idx]) / 2
+            return coeffs[idx], coeffs[idx]
+        assert entropies[idx + 1] <= entropy <= entropies[idx]
+        return coeffs[idx + 1], coeffs[idx] 
+
+    def next_psat_key(self, entropy: float) -> float:
+        key1, key2 = self.psat_edge(entropy)
+        if key2 == oo:
+            return 2*key1 
+        return (key2 - key1) / 2 + key1
         
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
@@ -320,7 +333,13 @@ class TabularCritic:
         if not match_entropy:  # Matching psat.
             assert target <= 1, "Probabilities are less than 1!"
 
-        stat = self.entropy if match_entropy else self.psat
+        if match_entropy:
+            stat = self.entropy
+        else:
+           def stat(node: Node, coeff: float) -> float:
+               itvl = self.psat(node, coeff)
+               assert itvl.low == itvl.high
+               return itvl.high
 
         def f(coeff: float) -> float:
             return stat(node, coeff) - target  # type: ignore
@@ -421,7 +440,7 @@ class TabularCritic:
         return Dist(node2prob)
 
     def feasible(self, node: Node, entropy: float, psat: float) -> Feasible:
-        if (self.entropy(node, 0) < entropy) or (self.psat(node, oo) < psat):
+        if (self.entropy(node, 0) < entropy) or (self.psat(node, oo).high < psat):
             return None
 
         if (self.entropy(node, oo) >= entropy):
@@ -430,7 +449,7 @@ class TabularCritic:
         def get_cmd(coeff: float) -> SearchCMD:
             # TODO: introduce tolerance here.
             hfeasible = self.entropy(node, coeff) >= entropy
-            pfeasible = self.psat(node, coeff) >= psat
+            pfeasible = self.psat(node, coeff).low >= psat
 
             if hfeasible and pfeasible:
                 return coeff

@@ -156,7 +156,7 @@ def solve(game: GameGraph,
     if critic is None:
         critic = TabularCritic(game)
 
-    if critic.psat(state, oo) < psat:
+    if critic.psat(state, oo).high < psat:
         raise ValueError(
             "No improviser exists. Could not reach psat in this MDP"
         )
@@ -176,7 +176,7 @@ def solve(game: GameGraph,
             "No improviser exists. Entropy constraint unreachable."
         )
 
-    if critic.psat(state, rationality) < psat:
+    if critic.psat(state, rationality).high < psat:
         raise ValueError(
             "No improviser exists. Could not reach psat in this MDP"
         )
