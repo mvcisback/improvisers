@@ -250,12 +250,12 @@ class TabularCritic:
 
         curves = self.curve
 
-        def refine(move: Node, entropy: float) -> float:
+        def refine(move: Node, _: float) -> float:
             # Halve rationality on corresponding edge.
             rationality2 = curves(move).next_psat_key(entropy)
             self._lsat(move, rationality2) 
 
-        def psat_bounds(move: Node, rationality: float) -> Itvl:
+        def psat_bounds(move: Node, _: float) -> Itvl:
             return curves(move).psat_bounds(entropy=entropy)
 
         move = self._moves(
