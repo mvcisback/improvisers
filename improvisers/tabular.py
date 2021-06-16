@@ -108,12 +108,12 @@ class ParetoCurve:
         return curve
 
     def __getitem__(self, key: float) -> PPoint:
-        if key in self:
+        if key not in self:
             raise KeyError
-        return PPoint(self.entropies[key], self.lsats[key])
+        return PPoint(self.entropies[key], psat(self.lsats[key]).low)
 
     def __contains__(self, key: float) -> bool:
-        return (key in self.entropies) and (key in self.psats)
+        return (key in self.entropies) and (key in self.lsats)
 
     def entropy_bounds(self, key: float) -> Itvl:
         if key in self.entropies:
@@ -143,38 +143,45 @@ class ParetoCurve:
 
         p0, p1 = self[edge[0]], self[edge[1]]
 
-        if p1.entropy == p2.entropy:  # Flat region.
+        if p0.entropy == p1.entropy:  # Flat region.
             assert p0.psat == p1.psat
             return Itvl(p0.psat, p1.psat)
 
         # Lower bound by convexity.
-        slope01 = (p1.psat - p0.psat) / (p1.entropy - p2.entropy)
-        assert edge[0] >= slope01 >= edge[1]
-        low = p0.psat + slope01 * (entropy - p0.entropy)
+        slope01 = (p1.psat - p0.psat) / (p1.entropy - p0.entropy)
+        assert edge[1] >= abs(slope01) >= edge[0]
+        low = p1.psat + slope01 * (entropy - p1.entropy)
 
         # Upper bound due to optimization direction.
-        if edge[0] == oo:
-            high0 = p0.psat
-        else:
-            high0 = p0.psat - edge[0] * (entropy - p0.entropy)
-
         if edge[1] == oo:
+            high1 = oo
+        elif edge[1] == 0:
             high1 = p1.psat
         else:
-            high1 = p1.psat + edge[1] * (entropy - p1.entropy)
+            high1 = p1.psat - edge[1] * (entropy - p1.entropy)
 
-        upper = max(low, min(high0, high1))
+        if edge[0] == oo:
+            high0 = oo
+        elif edge[0] == 0:
+            high0 = p0.psat
+        else:
+            high0 = p0.psat + edge[0] * (entropy - p0.entropy)
+
+        high = max(low, min(high0, high1, 1))
         return Itvl(low, high)
 
     def psat_edge(self, entropy: float) -> Tuple[float, float]:
+        if self.entropies[0] <= entropy:
+            return 0, 0
+        elif self.entropies[oo] >= entropy:
+            return oo, oo
         entropies = self.entropies.values()
         coeffs = self.entropies.keys()
         idx = bisect(entropies, entropy, lambda x, y: x > y)
         if entropies[idx] == entropy:  # entropy already present.
-            assert entropies[idx] == entropy
             return coeffs[idx], coeffs[idx]
-        assert entropies[idx + 1] <= entropy <= entropies[idx]
-        return coeffs[idx + 1], coeffs[idx] 
+        assert entropies[idx] < entropy < entropies[idx - 1]
+        return coeffs[idx - 1], coeffs[idx] 
 
     def next_psat_key(self, entropy: float) -> float:
         key1, key2 = self.psat_edge(entropy)
@@ -251,8 +258,9 @@ class TabularCritic:
         #   need note be updated since entropy is already matched.
         # Note 3: This step cannot be cached since psat will, in general,
         #   depend on the rationality.
+        entropy = self.entropy(moves[0], rationality)
         moves = self._moves(
-            get_bounds=lambda m, x: self.curve(m).psat_bounds(x),
+            get_bounds=lambda m, x: self.curve(m).psat_bounds(x, entropy),
             refine=self.psat,  # TODO: consider using angle.
             node=node,
             key=rationality,

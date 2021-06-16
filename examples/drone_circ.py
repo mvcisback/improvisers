@@ -513,7 +513,7 @@ def lifted_policy(actor, horizon):
 
 def main():
     dim = 5
-    horizon = 15
+    horizon = 20
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -551,11 +551,8 @@ def main():
         import time
         start = time.time()
         #curve = critic.pareto(game.root)
-        try:
-            actor = solve(game, psat=0.8, percent_entropy=0.8)
-        except:
-            pass
-            #actor = solve(game, psat=0.8)
+        actor = solve(game, psat=0.8, percent_entropy=0.8)
+        #actor = solve(game, psat=0.8)
         print(time.time() - start)
 
 
