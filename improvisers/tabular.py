@@ -82,7 +82,6 @@ class Itvl:
         return self.high - self.low
 
 
-
 def _psat(lsat: float) -> float:
     sat_prob = math.exp(lsat)
     assert sat_prob < 1.2
@@ -137,7 +136,7 @@ class ParetoCurve:
         elif key is not None:
             raise NotImplementedError
 
-        edge = self.psat_edge(entropy)
+        edge = self.find_edge(entropy)
         if edge[0] == edge[1]:
             return psat(self.lsats[edge[0]])
 
@@ -170,7 +169,7 @@ class ParetoCurve:
         high = max(low, min(high0, high1, 1))
         return Itvl(low, high)
 
-    def psat_edge(self, entropy: float) -> Tuple[float, float]:
+    def find_edge(self, entropy: float) -> Tuple[float, float]:
         if self.entropies[0] <= entropy:
             return 0, 0
         elif self.entropies[oo] >= entropy:
@@ -184,7 +183,7 @@ class ParetoCurve:
         return coeffs[idx - 1], coeffs[idx] 
 
     def next_psat_key(self, entropy: float) -> float:
-        key1, key2 = self.psat_edge(entropy)
+        key1, key2 = self.find_edge(entropy)
         if key2 == oo:
             return 2*key1 
         return (key2 - key1) / 2 + key1

@@ -17,7 +17,7 @@ import mdd as MDD
 import networkx as nx
 from aiger_discrete.mdd import to_mdd
 from blessings import Terminal
-from dd.cudd import BDD  # <---- Make sure CUDD backend available.
+from dd.cudd import Function  # <---- Make sure CUDD backend available.
 from mdd.nx import to_nx
 
 from improvisers.explicit import ExplicitDist
@@ -293,19 +293,6 @@ def p2_patrol_policy(dim):
         'init': (True, True),
     })
 
-# ---------------------- Shield Synth ------------------------ #
-
-
-# TODO:
-# 1. compose dynamics and hard constraint monitor
-# 2. unroll and build MDD.
-# 3. On underlying BDD, apply exist on output variable.
-# 3. Apply universal quantifications for all non-p1 nodes.
-# 4. Convert into predicate in form of a combinatorial AIG.
-# 5. Condition workspace on this predicate.
-
-# ------------------------------------------------------------ #
-
 
 def onehot_gadget(output: str):
     sat = BV.uatom(1, output)
@@ -322,39 +309,6 @@ def onehot_gadget(output: str):
         expr.aigbv,
         output_encodings={'sat': encoder},
     )
-
-
-def monitor2mdd(monitor, horizon):
-    pred = monitor.unroll(horizon, only_last_outputs=True)
-    pred = pred >> onehot_gadget(f'guarantees##time_{horizon}')
-
-    order = []
-    for t in range(horizon):
-        for action in ['a₁', '🗘', '🎲₁', '🎲₂']:
-            order.append(f'{action}##time_{t}')
-    mdd = to_mdd(pred)
-    breakpoint()
-    return mdd
-
-
-def monitor2bdd(monitor, horizon):
-    # Convert to BDD.
-    pred = monitor.unroll(horizon, only_last_outputs=True) \
-                  .aigbv \
-                  .cone(f'guarantees##time_{horizon}')
-
-    imap = pred.imap
-    order = []
-    for t in range(horizon):
-        for action in ['a₁', '🗘', '🎲₁', '🎲₂']:
-            order.extend(imap[f'{action}##time_{t}'])
-
-    bdd, *_ = aiger_bdd.to_bdd(
-        pred, 
-        levels={n: i for i, n in enumerate(order)}, 
-        renamer=lambda _, x: x
-    )
-    return bdd
 
 
 def const_true(size, name):
@@ -416,19 +370,44 @@ def monitor2bdd2mdd(monitor, horizon):
     return MDD.DecisionDiagram(io, bdd2)
 
 
-@attr.s(frozen=True, auto_attribs=True)
-class DroneGameGraph:
-    graph: nx.DiGraph
-    root: int = 0
+@attr.s(frozen=True, auto_attribs=True, auto_detect=True, slots=True)
+class BState:
+    expr: Function
+    parity: bool = False 
 
-    def moves(self, node):
-        return set(self.graph.neighbors(node))
+    @property
+    def ref(self) -> int:
+        expr = self.expr if self.parity else ~self.expr
+        return int(expr)
 
-    def label(self, node):
-        name = self.graph.nodes[node]['label']
-        if isinstance(name, bool):
-            return name
-        if name.startswith('a'):
+    def __eq__(self, other):
+        return self.ref == other.ref
+
+    def __hash__(self):
+        return self.ref
+
+    @property
+    def forbidden(self) -> bool:
+        return self.expr in (self.expr.bdd.true, self.expr.bdd.false)
+
+    def moves(self):
+        for expr in [self.expr.low, self.expr.high]:
+            state = BState(expr, expr.negated ^ self.parity)
+            if not self.forbidden:
+               yield state 
+
+    @property
+    def name(self) -> str:
+        return self.expr.var
+
+    @property
+    def label(self):
+        assert not self.forbidden 
+
+        name = self.name
+        if name.startswith('sat'):
+            return (name == 'sat[1]') ^ self.parity
+        elif name.startswith('a'):
             return 'p1'
         elif name.startswith('🗘'):
             return 'p2'
@@ -442,20 +421,19 @@ class DroneGameGraph:
             assert name.startswith('🎲')
             bias = 0.3 if name.startswith('🎲₁') else 0.7
 
-        support = list(self.graph.neighbors(node))
-        assert len(support) <= 2
-        
-        if len(support) == 1:
-            return ExplicitDist({support[0]: 1})
-        hi, lo = support  # Guess that this is the order.
+        low, high = self.moves()
+        return ExplicitDist({low: 1 - bias, high: bias}) 
 
-        hi_guard = self.graph.edges[node, hi]['label']
 
-        flipped = 0 in hi_guard
-        if flipped:  # Flip if guess was incorrect.
-            hi, lo = lo, hi
+@attr.s(frozen=True, auto_attribs=True, auto_detect=True)
+class BinaryGameGraph:
+    root: Function = attr.ib(converter=BState)
 
-        return ExplicitDist({lo: 1 - bias, hi: bias})
+    def moves(self, node):
+        return set(node.moves())
+
+    def label(self, node):
+        return node.label
 
 
 def lifted_policy(actor, horizon):
@@ -512,7 +490,7 @@ def lifted_policy(actor, horizon):
     
 
 def main():
-    dim = 5
+    dim = 8
     horizon = 20
 
     workspace = drone_dynamics(dim)      # Add dynamics
@@ -524,36 +502,26 @@ def main():
         'keep_output': True,
     })
 
-    if True:
-        spec = guarantees()
+    spec = guarantees()
 
-        monitor = BV.AIGBV.cone(workspace >> spec, 'guarantees')
-        # HACK: swap out aig for lazy aig for unrolling.
-        # This avoids unnecessary aiger compositions.
-        monitor_aigbv = attr.evolve(monitor.circ, aig=monitor.aigbv.aig.lazy_aig)
-        monitor = attr.evolve(monitor, circ=monitor_aigbv)
-        # End of Hack
+    monitor = BV.AIGBV.cone(workspace >> spec, 'guarantees')
+    # HACK: swap out aig for lazy aig for unrolling.
+    # This avoids unnecessary aiger compositions.
+    monitor_aigbv = attr.evolve(monitor.circ, aig=monitor.aigbv.aig.lazy_aig)
+    monitor = attr.evolve(monitor, circ=monitor_aigbv)
+    # End of Hack
 
-        #mdd = monitor2mdd(monitor, horizon)
-        #breakpoint()
+    print('building BDD')
+    mdd = monitor2bdd2mdd(monitor, horizon)
+    print(mdd.bdd.dag_size)
+    print('building converting into game graph')
 
-        #bdd = monitor2bdd(monitor, horizon)
-        print('building BDD')
-        mdd = monitor2bdd2mdd(monitor, horizon)
-        print(mdd.bdd.dag_size)
-        print('building converting into game graph')
-        graph = to_nx(mdd, symbolic_edges=True)
-        print(len(graph))
-
-        print('solving game with psat = 0.8')
-        game = DroneGameGraph(graph)
-        #critic = ParetoCritic.from_game_graph(game, tol=1e-2)
-        import time
-        start = time.time()
-        #curve = critic.pareto(game.root)
-        actor = solve(game, psat=0.8, percent_entropy=0.8)
-        #actor = solve(game, psat=0.8)
-        print(time.time() - start)
+    print('solving game with psat = 0.8')
+    game = BinaryGameGraph(mdd.bdd)
+    import time
+    start = time.time()
+    actor = solve(game, psat=0.8)
+    print(time.time() - start)
 
 
     while True:
@@ -576,7 +544,6 @@ def main():
                 print(output)
                 print(f'time={i}')
                 time.sleep(1)
-                
 
 
 if __name__ == '__main__':
