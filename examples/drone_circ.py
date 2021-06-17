@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import random
+import re
 from itertools import product
 from functools import reduce
 from typing import Tuple
@@ -13,6 +14,7 @@ import aiger_bv as BV
 import aiger_discrete as D
 import aiger_gridworld as GW
 import attr
+import funcy as fn
 import mdd as MDD
 import networkx as nx
 from aiger_discrete.mdd import to_mdd
@@ -370,6 +372,24 @@ def monitor2bdd2mdd(monitor, horizon):
     return MDD.DecisionDiagram(io, bdd2)
 
 
+def _label(name: str, parity: bool=False):
+    if name.startswith('sat'):
+        return (name == 'sat[1]') ^ parity
+    elif name.startswith('a'):
+        return 'p1'
+    elif name.startswith('🗘'):
+        return 'p2'
+    elif name.startswith('choose_drain'):
+        return 'p2'
+
+    # Is distribution node. Return bias.
+    if name.startswith('drain'):
+        return 1/100 if name.startswith('drain1') else 1/50
+
+    assert name.startswith('🎲')
+    return 0.3 if name.startswith('🎲₁') else 0.7
+
+
 @attr.s(frozen=True, auto_attribs=True, auto_detect=True, slots=True)
 class BState:
     expr: Function
@@ -403,26 +423,11 @@ class BState:
     @property
     def label(self):
         assert not self.forbidden 
-
-        name = self.name
-        if name.startswith('sat'):
-            return (name == 'sat[1]') ^ self.parity
-        elif name.startswith('a'):
-            return 'p1'
-        elif name.startswith('🗘'):
-            return 'p2'
-        elif name.startswith('choose_drain'):
-            return 'p2'
-
-        # Is distribution node.
-        if name.startswith('drain'):
-            bias = 1/100 if name.startswith('drain1') else 1/50
-        else:
-            assert name.startswith('🎲')
-            bias = 0.3 if name.startswith('🎲₁') else 0.7
-
+        label = _label(self.name, self.parity)
+        if not isinstance(label, float):
+            return label
         low, high = self.moves()
-        return ExplicitDist({low: 1 - bias, high: bias}) 
+        return ExplicitDist({low: 1 - label, high: label}) 
 
 
 @attr.s(frozen=True, auto_attribs=True, auto_detect=True)
@@ -487,11 +492,11 @@ def lifted_policy(actor, horizon):
                 assert time > t
                 actions = yield random.choice(list(int2action.inv))
                 print(t, time, actions['a₁'])
-    
+
 
 def main():
-    dim = 8
-    horizon = 20
+    dim = 4
+    horizon = 10
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -520,23 +525,79 @@ def main():
     game = BinaryGameGraph(mdd.bdd)
     import time
     start = time.time()
-    actor = solve(game, psat=0.8)
+    actor = solve(game, psat=0.8, percent_entropy=0.8)
     print(time.time() - start)
 
+    n_inputs = len(workspace.aig.inputs)
+    assert len(game.root.expr.bdd.vars) == horizon * n_inputs + 2
 
-    while True:
-        input('run?')
-        policy = lifted_policy(actor, horizon)
+    def sample_path():
+        name_parser = re.compile('(.*)##time_(\d*)\[(\d*)]')
+        policy = actor.improvise()
+        bdd = game.root.expr.bdd
+        state = game.root
+        obs, path = None, []
         sim = workspace.simulator()
         next(sim)
+        codec = workspace.input_encodings
 
-        actions = None
+        for t in range(horizon):
+            start, end = t * n_inputs, (t + 1) * n_inputs
+            circ_input = {}
+            for lvl in range(start, end):
+                name = bdd.var_at_level(lvl)
+                prefix, time, idx = name_parser.match(name).groups()
+                key = f"{prefix}[{idx}]" 
+                assert time.startswith(str(t))
+
+                dont_care = name != state.name 
+
+                label = _label(name)
+                if label != 'p2' and lvl != 0:
+                    obs = (state, path)
+                    path = []
+
+                if not dont_care and (label == 'p1'):
+                    move, _ = policy.send(obs)
+                    circ_input[key] = move.expr == state.expr.high
+                    state = move
+                    continue
+
+                if isinstance(label, float):                # Flip biased coin.
+                    bias = label 
+                elif label == 'p2':                         # p2 policy. 
+                    bias = 0.01
+                else:
+                    bias = 0.5
+
+                decision = random.random() < bias
+            
+                if dont_care:
+                    circ_input[key] = decision
+                    continue
+
+                moves = list(state.moves())                 # Forced move.
+                assert len(moves) in (1, 2)
+                if len(moves) == 1:
+                    circ_input[key] = moves[0] == state.expr.high
+                    continue
+                else:
+                    circ_input[key] = decision
+
+            # Decode input 
+            circ_input = workspace.imap.unblast(circ_input)
+            for key, val in circ_input.items():
+                val = BV.decode_int(val, signed=False)
+                if key in codec:
+                    val = codec[key].decode(val)
+                circ_input[key] = val 
+            yield circ_input, sim.send(circ_input)[0]
+            
+    while True:
+        input('run?')
+
         with TERM.hidden_cursor():
-            for i in range(horizon):
-                p1_action = policy.send(actions)
-                actions = {'a₁': p1_action, '🗘': 0, '🎲₁': 0, '🎲₂': 0}
-                output = sim.send(actions)[0]
-
+            for i, (actions, output) in enumerate(sample_path()): 
                 state = output['state']
 
                 print(f"{TERM.clear}{GridState(dim, state).board}")

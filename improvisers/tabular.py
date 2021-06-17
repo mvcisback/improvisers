@@ -137,6 +137,10 @@ class ParetoCurve:
             raise NotImplementedError
 
         edge = self.find_edge(entropy)
+
+        if (edge[0] not in self) or (edge[1] not in self):
+            return Itvl(0, 1)  # TODO handle this case.
+        
         if edge[0] == edge[1]:
             return psat(self.lsats[edge[0]])
 

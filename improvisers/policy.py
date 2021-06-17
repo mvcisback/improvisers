@@ -124,7 +124,7 @@ def from_p2_path(game: Game,
 
         if (label == 'p1') or isinstance(label, bool):
             prev_lprob = dist.get(node, 0.0)
-            dist[node] = logsumexp([prev_lprob, lprob])
+            dist[node] = logsumexp([prev_lprob, lprob], b=[0.5, 0.5])
         elif label == 'p2':
             if path and (node == path[0]):  # Conform to observed path.
                 node2, *path = path
