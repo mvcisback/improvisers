@@ -92,10 +92,11 @@ def psat(lsat: Itvl) -> Itvl:
     return Itvl(_psat(lsat.low), _psat(lsat.high))
 
     
-@attr.s(auto_attribs=True, auto_detect=True, frozen=True)
+@attr.s(auto_attribs=True, auto_detect=True)
 class ParetoCurve:
     entropies: Mapping[float, float] = attr.ib(factory=SortedDict)
-    lsats: Mapping[float, Itvl] = attr.ib(factory=SortedDict)
+    lsats: Mapping[float, float] = attr.ib(factory=SortedDict)
+    psat_tol: float = 1
 
     @staticmethod
     def new(node: Node, critic: Critic) -> ParetoCurve:
@@ -104,49 +105,66 @@ class ParetoCurve:
         curve.entropies[oo] = critic._entropy(node, oo)
         curve.lsats[0] = critic._lsat(node, 0)
         curve.lsats[oo] = critic._lsat(node, oo)
+        size = oo
+        while True:
+            size, key = curve.max_psat_uncertainty()
+            if size < critic.tol:
+                break
+            curve.entropies[key] = critic._entropy(node, key)
+            curve.lsats[key] = critic._lsat(node, key)
+            assert key in curve
+        curve.psat_tol = size
         return curve
 
     def __getitem__(self, key: float) -> PPoint:
         if key not in self:
             raise KeyError
-        return PPoint(self.entropies[key], psat(self.lsats[key]).low)
+        return PPoint(self.entropies[key], _psat(self.lsats[key]))
 
     def __contains__(self, key: float) -> bool:
         return (key in self.entropies) and (key in self.lsats)
 
-    def find_edge_by_key(self, key: float) -> Tuple[float, float]:
-        if key in self.entropies:
+    def find_edge_by_key(self, key: float, entropies=True) -> Tuple[float, float]:
+        mapping = self.entropies if entropies else self.lsats
+
+        if key in mapping:
             return key, key 
 
         # Compute montonicity bound.
-        idx = self.entropies.bisect_left(key)
-        size = len(self.entropies)
+        idx = mapping.bisect_left(key)
+        size = len(mapping)
         assert idx not in (0, size)
-        low = self.entropies.keys()[idx]
-        high = self.entropies.keys()[idx - 1]
+        high = mapping.keys()[idx]
+        low = mapping.keys()[idx - 1]
         return low, high 
 
     def entropy_bounds(self, key: float) -> Itvl:
-        low, high = self.find_edge_by_key(key)
+        high, low = self.find_edge_by_key(key)  # Monotonicity flipped.
         return Itvl(self.entropies[low], self.entropies[high])
 
     def psat_bounds(self, key: Optional[float] = None, entropy: Optional[float] = None) -> Itvl:
-        if key in self.lsats:
-            return psat(self.lsats[key])
         if (key is None) == (entropy is None):
             raise ValueError
         elif key is not None:
-            edge = self.find_edge_by_key(key)
+            edge = self.find_edge_by_key(key, entropies=False)
         else:
             edge = self.find_edge(entropy)
 
-        if (edge[0] not in self) or (edge[1] not in self):
-            return Itvl(0, 1)  # TODO handle this case.
+        #if (edge[0] not in self) or (edge[1] not in self):
+        #    return Itvl(0, 1)  # TODO handle this case.
         
         if edge[0] == edge[1]:
-            return psat(self.lsats[edge[0]])
+            low = high = _psat(self.lsats[edge[0]])
+            return Itvl(low, high) 
 
+        assert edge[0] < edge[1]
         p0, p1 = self[edge[0]], self[edge[1]]
+        assert p0.psat <= p1.psat + 1e-3
+        if p1.psat < p0.psat <= 0:  # Hack for floating point.
+            return Itvl(p1.psat, p1.psat)
+            
+        if key is not None:
+            return Itvl(p0.psat, p1.psat)
 
         if p0.entropy == p1.entropy:  # Flat region.
             assert p0.psat == p1.psat
@@ -156,27 +174,13 @@ class ParetoCurve:
         slope01 = (p1.psat - p0.psat) / (p1.entropy - p0.entropy)
         #assert edge[1] >= abs(slope01) >= edge[0]
         low = p1.psat + slope01 * (entropy - p1.entropy)
+        assert p0.psat <= low
 
-        # Upper bound due to optimization direction.
-        if edge[1] == oo:
-            high1 = oo
-        elif edge[1] == 0:
-            high1 = p1.psat
-        else:
-            high1 = p1.psat - edge[1] * (entropy - p1.entropy)
-
-        if edge[0] == oo:
-            high0 = oo
-        elif edge[0] == 0:
-            high0 = p0.psat
-        else:
-            high0 = p0.psat + edge[0] * (entropy - p0.entropy)
-
-        #high = max(low, min(high0, high1, 1))
-        high = min(high0, high1, 1)
+        # Upper bound due to monotonicity.
+        high = p1.psat
+        assert low <= high + 1e-4  # HACK
         low = min(high, low)  # Be conservative.
-        assert p0.psat >= high
-        assert p1.psat <= low
+        assert p1.psat >= high
         return Itvl(low, high)
 
     def find_edge(self, entropy: float) -> Tuple[float, float]:
@@ -185,20 +189,38 @@ class ParetoCurve:
             return 0, 0
         elif self.entropies[oo] >= entropy:
             return oo, oo
-        entropies = self.entropies.values()
-        coeffs = self.entropies.keys()
-        idx = bisect(entropies, entropy, lambda x, y: x > y)
-        if entropies[idx] == entropy:  # entropy already present.
-            return coeffs[idx], coeffs[idx]
-        assert entropies[idx] < entropy < entropies[idx - 1]
-        return coeffs[idx - 1], coeffs[idx] 
+        coeffs = self.lsats.keys()
+
+        idx = bisect(coeffs, entropy, lambda x, y: self.entropies[x] > y)
+        left, right = coeffs[idx - 1], coeffs[idx]
+        if self.entropies[right] == entropy:  # entropy already present.
+            return right, right 
+        assert self.entropies[right] < entropy < self.entropies[left]
+        return left, right 
 
     def next_psat_key(self, entropy: float) -> float:
         key1, key2 = self.find_edge(entropy)
         if key2 == oo:
-            return 2*key1 
+            return max(2*key1, 1)
         return (key2 - key1) / 2 + key1
-        
+
+    def max_psat_uncertainty(self) -> Tuple[float, float]:
+        """Return current uncertainty and next key to compute."""
+        items = list(self.lsats.items())
+        max_size = 0
+        key = None
+        for (k1, l1), (k2, l2) in zip(items, items[1:]):
+            low, high = l1, l2
+            if high < low and abs(low - high) < 1e-5:  # HACK
+                low, high = high, low
+            assert high >= low
+            assert k1 <= k2
+            itvl = psat(Itvl(low, high))
+            
+            if itvl.size > max_size:
+                key = (k2 - k1) / 2 + k1 if k2 != oo else max(2*k1, 1)
+                max_size = itvl.size
+        return max_size, key
 
 @attr.s(auto_attribs=True, auto_detect=True, frozen=True)
 class TabularCritic:
@@ -271,19 +293,11 @@ class TabularCritic:
         # Note 3: This step cannot be cached since psat will, in general,
         #   depend on the rationality.
         entropy = self.entropy(moves[0], rationality)
-        moves = self._moves(
-            get_bounds=lambda m, x: self.curve(m).psat_bounds(entropy=entropy),
-            refine=self.psat,  # TODO: consider using angle.
-            node=node,
-            key=rationality,
-            moves=moves,
-        )
-        return moves[0]  # Remaining moves equivalent.
+        return min(moves, key=lambda m: self.psat(m, rationality))
 
     @lru_cache(maxsize=None)
     def min_psat(self, node: Node, rationality: float) -> Itvl:
         assert self.game.label(node) == 'p2'
-
         # Compute entropy of planned move.
         planned_move = self.min_ent_move(node, rationality)
         entropy = self.entropy(planned_move, rationality)
@@ -341,17 +355,15 @@ class TabularCritic:
             dist = node_dist
             probs = [dist.prob(n) for n in dist.support()]
             lsats = [self.lsat(n, rationality) for n in dist.support()]
-            low = logsumexp([x.low for x in lsats], b=probs)
-            high = logsumexp([x.high for x in lsats], b=probs)
-            return Itvl(low, high) 
+            return logsumexp([x for x in lsats], b=probs)
 
         # See if pareto front is computed to tolerance.
         itvl = self.curve(node_dist).psat_bounds(rationality)
         if itvl.size < self.tol:
-            low = -oo if itvl.low == 0 else math.log(itvl.low)
-            high = -oo if itvl.low == 0 else math.log(itvl.high)
-            return Itvl(low, high) 
-
+            # TODO: Use upper bound?
+            return -oo if itvl.low == 0 else math.log(itvl.low)
+        # TODO: this shouldn't happen!
+        raise RuntimeError 
         # Update pareto front if needed.
         lsats = self.curve(node_dist).lsats
         if rationality not in lsats:
@@ -362,8 +374,7 @@ class TabularCritic:
     def _lsat(self, node: Node, rationality: float) -> float:
         label = self.game.label(node)
         if isinstance(label, bool):
-            val = 0 if label else -oo
-            return Itvl(val, val)
+            return 0 if label else -oo
         elif label == 'p2':
             # Plan against optimal deterministic p2 policy.
             return self.min_psat(node, rationality)
@@ -372,7 +383,7 @@ class TabularCritic:
         return self.lsat(node_dist2, rationality)
 
     def psat(self, node: Node, rationality: float) -> float:
-        return psat(self.lsat(node, rationality))
+        return _psat(self.lsat(node, rationality))
         
     def _rationality(self, node: Node, target: float,
                      match_entropy: bool = False,
@@ -382,13 +393,7 @@ class TabularCritic:
         if not match_entropy:  # Matching psat.
             assert target <= 1, "Probabilities are less than 1!"
 
-        if match_entropy:
-            stat = self.entropy
-        else:
-           def stat(node: Node, coeff: float) -> float:
-               itvl = self.psat(node, coeff)
-               assert itvl.low == itvl.high
-               return itvl.high
+        stat = self.entropy if match_entropy else self.psat
 
         def f(coeff: float) -> float:
             return stat(node, coeff) - target  # type: ignore
@@ -489,7 +494,9 @@ class TabularCritic:
         return Dist(node2prob)
 
     def feasible(self, node: Node, entropy: float, psat: float) -> Feasible:
-        if (self.entropy(node, 0) < entropy) or (self.psat(node, oo).high < psat):
+        # TODO: update feasible check!
+        
+        if (self.entropy(node, 0) < entropy) or (self.psat(node, oo) < psat):
             return None
 
         if (self.entropy(node, oo) >= entropy):
@@ -498,7 +505,7 @@ class TabularCritic:
         def get_cmd(coeff: float) -> SearchCMD:
             # TODO: introduce tolerance here.
             hfeasible = self.entropy(node, coeff) >= entropy
-            pfeasible = self.psat(node, coeff).low >= psat
+            pfeasible = self.psat(node, coeff) >= psat
 
             if hfeasible and pfeasible:
                 return coeff

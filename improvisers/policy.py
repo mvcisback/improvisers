@@ -47,8 +47,8 @@ class PolicyState:
         entropy = self.prob * critic.entropy(self.node, self.coeff1)
         entropy += (1 - self.prob) * critic.entropy(self.node, self.coeff2)
 
-        psat = self.prob * critic.psat(self.node, self.coeff1).low
-        psat += (1 - self.prob) * critic.psat(self.node, self.coeff2).low
+        psat = self.prob * critic.psat(self.node, self.coeff1)
+        psat += (1 - self.prob) * critic.psat(self.node, self.coeff2)
 
         return (entropy, psat)
 
@@ -88,24 +88,12 @@ def replan(pstate: PolicyState, critic: Critic, dist2: Dist) -> float:
         pstate2 = PolicyState(move, left, right, prob)
         new_entropy, new_psat = pstate2.pareto_point(critic)
 
-        if (new_psat < observed_psat) or (new_entropy < expected_entropy):
+        if new_psat < observed_psat:
             continue
 
         return pstate2
 
     raise RuntimeError("Replanning Failed! This is a bug, please report.")
-
-    def f(x: float) -> float:
-        return critic.entropy(dist2, x) - expected_entropy
-
-    # Binary search for rationality coefficient.
-    offset = 1
-    for _ in range(100):
-        try:
-            return brentq(f, coeff, coeff + offset)
-        except ValueError:
-            offset *= 2
-    return float('inf')  # Effectively infinite.
 
 
 def from_p2_path(game: Game,
@@ -210,19 +198,21 @@ def solve(game: GameGraph,
     if critic is None:
         critic = TabularCritic(game)
 
-    if critic.psat(state, oo).high < psat:
+    fake_psat = min(psat + critic.tol, 1)
+
+    if critic.psat(state, oo) < psat:
         raise ValueError(
             "No improviser exists. Could not reach psat in this MDP"
         )
     elif percent_entropy is not None:
         h0, hinf = critic.entropy(state, 0), critic.entropy(state, oo)
         entropy = percent_entropy * (h0 - hinf) + hinf
-        rationality = critic.feasible(state, entropy, psat)
+        rationality = critic.feasible(state, entropy, fake_psat)
         if rationality is None:
             raise ValueError('No improviser exists!')
     else:
         # Maximum entropy.
-        rationality = max(0, critic.match_psat(state, psat))
+        rationality = max(0, critic.match_psat(state, fake_psat))
         entropy = critic.entropy(state, rationality)
 
     if critic.entropy(state, rationality) < entropy:
@@ -230,7 +220,8 @@ def solve(game: GameGraph,
             "No improviser exists. Entropy constraint unreachable."
         )
 
-    if critic.psat(state, rationality).high < psat:
+    # TODO: adjust for tolerance.
+    if critic.psat(state, rationality) < psat:
         raise ValueError(
             "No improviser exists. Could not reach psat in this MDP"
         )

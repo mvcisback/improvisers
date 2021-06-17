@@ -1,4 +1,4 @@
-# flake8: noqa
+# fla_ke8: noqa
 
 from pytest import approx
 
@@ -51,6 +51,5 @@ def test_stochastic_game_critic():
     for i in range(6):
         coeff = 10**(1 - i)
         psat = critic.psat(game_graph.root, coeff)
-        assert psat.low == psat.high
-        assert 0 <= psat.low < 1
-    assert critic.psat(game_graph.root, float('inf')).low == 1/3
+        assert 0 <= psat < 1
+    assert critic.psat(game_graph.root, float('inf')) == 1/3
