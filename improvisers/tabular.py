@@ -114,19 +114,21 @@ class ParetoCurve:
     def __contains__(self, key: float) -> bool:
         return (key in self.entropies) and (key in self.lsats)
 
-    def entropy_bounds(self, key: float) -> Itvl:
+    def find_edge_by_key(self, key: float) -> Tuple[float, float]:
         if key in self.entropies:
-            ent = self.entropies[key]
-            return Itvl(ent, ent)
+            return key, key 
 
         # Compute montonicity bound.
         idx = self.entropies.bisect_left(key)
         size = len(self.entropies)
         assert idx not in (0, size)
+        low = self.entropies.keys()[idx]
+        high = self.entropies.keys()[idx - 1]
+        return low, high 
 
-        low = self.entropies.values()[idx]
-        high = self.entropies.values()[idx - 1]
-        return Itvl(low, high)
+    def entropy_bounds(self, key: float) -> Itvl:
+        low, high = self.find_edge_by_key(key)
+        return Itvl(self.entropies[low], self.entropies[high])
 
     def psat_bounds(self, key: Optional[float] = None, entropy: Optional[float] = None) -> Itvl:
         if key in self.lsats:
@@ -134,9 +136,9 @@ class ParetoCurve:
         if (key is None) == (entropy is None):
             raise ValueError
         elif key is not None:
-            raise NotImplementedError
-
-        edge = self.find_edge(entropy)
+            edge = self.find_edge_by_key(key)
+        else:
+            edge = self.find_edge(entropy)
 
         if (edge[0] not in self) or (edge[1] not in self):
             return Itvl(0, 1)  # TODO handle this case.
@@ -152,7 +154,7 @@ class ParetoCurve:
 
         # Lower bound by convexity.
         slope01 = (p1.psat - p0.psat) / (p1.entropy - p0.entropy)
-        assert edge[1] >= abs(slope01) >= edge[0]
+        #assert edge[1] >= abs(slope01) >= edge[0]
         low = p1.psat + slope01 * (entropy - p1.entropy)
 
         # Upper bound due to optimization direction.
@@ -170,10 +172,15 @@ class ParetoCurve:
         else:
             high0 = p0.psat + edge[0] * (entropy - p0.entropy)
 
-        high = max(low, min(high0, high1, 1))
+        #high = max(low, min(high0, high1, 1))
+        high = min(high0, high1, 1)
+        low = min(high, low)  # Be conservative.
+        assert p0.psat >= high
+        assert p1.psat <= low
         return Itvl(low, high)
 
     def find_edge(self, entropy: float) -> Tuple[float, float]:
+        assert set(self.lsats.keys()) <= set(self.entropies.keys())
         if self.entropies[0] <= entropy:
             return 0, 0
         elif self.entropies[oo] >= entropy:
@@ -198,6 +205,7 @@ class TabularCritic:
     game: GameGraph
     val_cache: Dict[(Node, float), float] = attr.ib(factory=dict, eq=False)
     pareto_curves: Dict[Node, ParetoCurve] = attr.ib(factory=dict, eq=False)
+    tol: float = 0.01
 
     def __hash__(self) -> int:
         # TODO: Remove
@@ -253,6 +261,7 @@ class TabularCritic:
         if len(moves) == 1:
             return moves[0]
 
+        #return moves[0]
         # Break ties with psat.
         # Note 1: Triggering this is fairly difficult to arrange in
         #   practice, since entropy and values both sensitive to exact
@@ -263,7 +272,7 @@ class TabularCritic:
         #   depend on the rationality.
         entropy = self.entropy(moves[0], rationality)
         moves = self._moves(
-            get_bounds=lambda m, x: self.curve(m).psat_bounds(x, entropy),
+            get_bounds=lambda m, x: self.curve(m).psat_bounds(entropy=entropy),
             refine=self.psat,  # TODO: consider using angle.
             node=node,
             key=rationality,
@@ -336,8 +345,17 @@ class TabularCritic:
             high = logsumexp([x.high for x in lsats], b=probs)
             return Itvl(low, high) 
 
+        # See if pareto front is computed to tolerance.
+        itvl = self.curve(node_dist).psat_bounds(rationality)
+        if itvl.size < self.tol:
+            low = -oo if itvl.low == 0 else math.log(itvl.low)
+            high = -oo if itvl.low == 0 else math.log(itvl.high)
+            return Itvl(low, high) 
+
+        # Update pareto front if needed.
         lsats = self.curve(node_dist).lsats
         if rationality not in lsats:
+            assert rationality in self.curve(node_dist).entropies
             lsats[rationality] = self._lsat(node_dist, rationality)
         return lsats[rationality] 
 
