@@ -495,8 +495,8 @@ def lifted_policy(actor, horizon):
 
 
 def main():
-    dim = 4
-    horizon = 10
+    dim = 5
+    horizon = 8
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -525,8 +525,10 @@ def main():
     game = BinaryGameGraph(mdd.bdd)
     import time
     start = time.time()
-    actor = solve(game, psat=0.8, percent_entropy=0.8)
+    actor = solve(game, psat=0.8, tol=0.001)
     print(time.time() - start)
+
+    breakpoint()
 
     n_inputs = len(workspace.aig.inputs)
     assert len(game.root.expr.bdd.vars) == horizon * n_inputs + 2

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import math
+import random
+import time
 from collections import defaultdict
 from typing import Hashable, List, Tuple, Dict, Callable, Optional, Literal
 from typing import Union
@@ -20,13 +22,65 @@ from improvisers.explicit import ExplicitDist as Dist
 
 oo = float('inf')
 RealFunc = Callable[[float], float]
-Feasibile = Optional[float]
 SearchCMD = Union[
     Literal['increase'], 
     Literal['decrease'], 
     None,   # Reject
     float,  # Accept
 ]
+
+
+def convex_comb(curve, entropy):
+    left, right = curve.find_edge(entropy=entropy)
+    entropy_left = curve.entropies[left]
+    entropy_right = curve.entropies[right]
+
+    if not (entropy_right <= entropy <= entropy_left):
+        return None
+
+    if entropy_left == entropy_right:
+        prob = 1
+    else:
+        prob = (entropy - entropy_right) / (entropy_left - entropy_right)
+    assert 0 <= prob <= 1
+    return prob
+
+
+@attr.s(auto_attribs=True, frozen=True)
+class PolicyState:
+    node: Node
+    coeff1: float
+    coeff2: float = 0
+    prob: float = 1
+
+    @staticmethod
+    def from_entropy(node: Node, critic: Critic, entropy: float) -> Optional[PolicyState]:
+        curve = critic.curve(node)
+        left, right = curve.find_edge(entropy=entropy)
+        entropy_left = curve.entropies[left]
+        entropy_right = curve.entropies[right]
+
+        if not (entropy_right <= entropy <= entropy_left):
+            return None
+
+        if entropy_left == entropy_right:
+            prob = 1
+        else:
+            prob = (entropy - entropy_right) / (entropy_left - entropy_right)
+        assert 0 <= prob <= 1
+        return PolicyState(node, left, right, prob)
+
+    def sample_coeff(self) -> float:
+        return self.coeff1 if random.random() <= self.prob else self.coeff2
+    
+    def pareto_point(self, critic) -> Tuple[float, float]:
+        entropy = self.prob * critic.entropy(self.node, self.coeff1)
+        entropy += (1 - self.prob) * critic.entropy(self.node, self.coeff2)
+
+        psat = self.prob * critic.psat(self.node, self.coeff1)
+        psat += (1 - self.prob) * critic.psat(self.node, self.coeff2)
+
+        return (entropy, psat)
 
 
 # https://stackoverflow.com/questions/29045162/binary-search-of-reversed-sorted-list-in-python
@@ -91,7 +145,11 @@ def _psat(lsat: float) -> float:
 def psat(lsat: Itvl) -> Itvl:
     return Itvl(_psat(lsat.low), _psat(lsat.high))
 
-    
+
+NUM_NODES_DONE = 0
+TOTAL_TIME = 0 
+
+
 @attr.s(auto_attribs=True, auto_detect=True)
 class ParetoCurve:
     entropies: Mapping[float, float] = attr.ib(factory=SortedDict)
@@ -100,20 +158,33 @@ class ParetoCurve:
 
     @staticmethod
     def new(node: Node, critic: Critic) -> ParetoCurve:
+        print(f"creating pareto front for:\n   {node}")
+        start = time.time()
         curve = ParetoCurve()
+
         curve.entropies[0] = critic._entropy(node, 0)
-        curve.entropies[oo] = critic._entropy(node, oo)
         curve.lsats[0] = critic._lsat(node, 0)
+
+        curve.entropies[oo] = critic._entropy(node, oo)
         curve.lsats[oo] = critic._lsat(node, oo)
         size = oo
         while True:
             size, key = curve.max_psat_uncertainty()
+            if len(curve.lsats) % 10 == 0:
+                print(f"{node}\n   {size}, {key}\n    {len(curve.lsats)}")
             if size < critic.tol:
                 break
             curve.entropies[key] = critic._entropy(node, key)
             curve.lsats[key] = critic._lsat(node, key)
             assert key in curve
         curve.psat_tol = size
+        global NUM_NODES_DONE
+        global TOTAL_TIME
+        TOTAL_TIME += time.time() - start 
+        NUM_NODES_DONE += 1
+        if NUM_NODES_DONE % 10 == 0:
+            print(f"{NUM_NODES_DONE=}, AVG_TIME={TOTAL_TIME / NUM_NODES_DONE}")
+
         return curve
 
     def __getitem__(self, key: float) -> PPoint:
@@ -150,9 +221,6 @@ class ParetoCurve:
         else:
             edge = self.find_edge(entropy)
 
-        #if (edge[0] not in self) or (edge[1] not in self):
-        #    return Itvl(0, 1)  # TODO handle this case.
-        
         if edge[0] == edge[1]:
             low = high = _psat(self.lsats[edge[0]])
             return Itvl(low, high) 
@@ -162,16 +230,21 @@ class ParetoCurve:
         assert p0.psat <= p1.psat + 1e-3
         if p1.psat < p0.psat <= 0:  # Hack for floating point.
             return Itvl(p1.psat, p1.psat)
-            
-        if key is not None:
-            return Itvl(p0.psat, p1.psat)
 
         if p0.entropy == p1.entropy:  # Flat region.
             assert p0.psat == p1.psat
             return Itvl(p0.psat, p1.psat)
-
+            
         # Lower bound by convexity.
         slope01 = (p1.psat - p0.psat) / (p1.entropy - p0.entropy)
+        if key is not None:
+            if edge != (0, oo):
+                breakpoint()
+
+            return Itvl(p0.psat, p1.psat)
+
+
+
         #assert edge[1] >= abs(slope01) >= edge[0]
         low = p1.psat + slope01 * (entropy - p1.entropy)
         assert p0.psat <= low
@@ -202,7 +275,8 @@ class ParetoCurve:
         key1, key2 = self.find_edge(entropy)
         if key2 == oo:
             return max(2*key1, 1)
-        return (key2 - key1) / 2 + key1
+        prob = convex_comb(self, entropy)
+        return prob*key1 + (1-prob)*key2
 
     def max_psat_uncertainty(self) -> Tuple[float, float]:
         """Return current uncertainty and next key to compute."""
@@ -302,25 +376,11 @@ class TabularCritic:
         planned_move = self.min_ent_move(node, rationality)
         entropy = self.entropy(planned_move, rationality)
 
-        curves = self.curve
+        def replanned_psat(move):
+            itvl = self.curve(move).psat_bounds(entropy=entropy)
+            return itvl.low  # HACK. Should check if refined enough.
 
-        def refine(move: Node, _: float) -> float:
-            # Halve rationality on corresponding edge.
-            rationality2 = curves(move).next_psat_key(entropy)
-            self._lsat(move, rationality2) 
-
-        def psat_bounds(move: Node, _: float) -> Itvl:
-            return curves(move).psat_bounds(entropy=entropy)
-
-        move = self._moves(
-            get_bounds=psat_bounds,
-            refine=refine,
-            node=node,
-            key=entropy,
-        )[0]
-        # Simulate replanning (TODO: expensive!)
-        rationality = self.match_entropy(move, entropy)
-        return self.lsat(move, rationality)
+        return min(map(replanned_psat, self.game.moves(node)))
 
     def value(self, node: Node, rationality: float) -> float:
         if (node, rationality) not in self.val_cache:
@@ -350,7 +410,7 @@ class TabularCritic:
         probs = [dist.prob(move) for move in moves]
         return np.average(values, weights=probs)
 
-    def lsat(self, node_dist: DistLike, rationality: float) -> Itvl:
+    def lsat(self, node_dist: DistLike, rationality: float) -> float:
         if isinstance(node_dist, Dist):  # Reduce dist to calls over support.
             dist = node_dist
             probs = [dist.prob(n) for n in dist.support()]
@@ -377,7 +437,7 @@ class TabularCritic:
             return 0 if label else -oo
         elif label == 'p2':
             # Plan against optimal deterministic p2 policy.
-            return self.min_psat(node, rationality)
+            return math.log(self.min_psat(node, rationality))
 
         node_dist2 = self.move_dist(node, rationality)
         return self.lsat(node_dist2, rationality)
@@ -493,45 +553,14 @@ class TabularCritic:
         node2prob = {k: math.exp(v) for k, v in node2prob.items()}
         return Dist(node2prob)
 
-    def feasible(self, node: Node, entropy: float, psat: float) -> Feasible:
+    def feasible(self, node: Node, entropy: float, psat: float) -> Optional[PolicyState]:
         # TODO: update feasible check!
-        
-        if (self.entropy(node, 0) < entropy) or (self.psat(node, oo) < psat):
+        curve = self.curve(node)
+        itvl = curve.psat_bounds(entropy)
+        if itvl.low < psat:
             return None
-
-        if (self.entropy(node, oo) >= entropy):
-            return oo  # Already know self.psat(node, oo) >= 0.
-
-        def get_cmd(coeff: float) -> SearchCMD:
-            # TODO: introduce tolerance here.
-            hfeasible = self.entropy(node, coeff) >= entropy
-            pfeasible = self.psat(node, coeff) >= psat
-
-            if hfeasible and pfeasible:
-                return coeff
-            elif hfeasible and not pfeasible:
-                return "increase"
-            elif not hfeasible and pfeasible:
-                return "decrease"
-            else:
-                return None
+        return PolicyState.from_entropy(node, self, entropy)
         
-        # Doubling trick for range.
-        lo = hi = 0
-        for i in range(5):
-            cmd = get_cmd(hi)
-            if not isinstance(cmd, str):
-                return cmd
-            elif cmd == 'decrease':
-                break
-            lo, hi = hi, 1 << i
-
-        while True:
-            mid = lo + (hi - lo) / 2
-            cmd = get_cmd(mid)
-            if not isinstance(cmd, str):
-                return cmd
-            lo, hi = (lo, mid) if cmd == 'decrease' else (mid, hi)
 
     @staticmethod
     def from_game_graph(game_graph: GameGraph) -> Critic:

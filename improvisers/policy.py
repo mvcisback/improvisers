@@ -2,7 +2,6 @@
 
 import collections
 import math
-import random
 from typing import Dict, Generator, Optional, Tuple, Union, Sequence
 
 import attr
@@ -11,7 +10,7 @@ from scipy.special import logsumexp
 
 from improvisers.game_graph import Node, GameGraph
 from improvisers.critic import Critic, Distribution
-from improvisers.tabular import TabularCritic
+from improvisers.tabular import TabularCritic, PolicyState
 from improvisers.explicit import ExplicitDist
 
 
@@ -33,25 +32,6 @@ ImprovProtocol = Generator[
 ]
 
 
-@attr.s(auto_attribs=True, frozen=True)
-class PolicyState:
-    node: Node
-    coeff1: float
-    coeff2: float = 0
-    prob: float = 1
-
-    def sample_coeff(self) -> float:
-        return self.coeff1 if random.random() <= self.prob else self.coeff2
-    
-    def pareto_point(self, critic) -> Tuple[float, float]:
-        entropy = self.prob * critic.entropy(self.node, self.coeff1)
-        entropy += (1 - self.prob) * critic.entropy(self.node, self.coeff2)
-
-        psat = self.prob * critic.psat(self.node, self.coeff1)
-        psat += (1 - self.prob) * critic.psat(self.node, self.coeff2)
-
-        return (entropy, psat)
-
 
 def replan(pstate: PolicyState, critic: Critic, dist2: Dist) -> float:
     """Replan based on observed state distribution.
@@ -72,25 +52,9 @@ def replan(pstate: PolicyState, critic: Critic, dist2: Dist) -> float:
         
     # There must exist a deterministic p2 move whose p1 replan suffices. 
     for move in critic.game.moves(pstate.node):
-        curve = critic.curve(move)
-        left, right = curve.find_edge(entropy=expected_entropy)
-        entropy_left = critic.entropy(move, left)
-        entropy_right = critic.entropy(move, right)
-
-        if not (entropy_right <= expected_entropy <= entropy_left):
+        pstate2 = PolicyState.from_entropy(move, critic, expected_entropy)
+        if pstate2 is None:
             continue
-
-        if entropy_left == entropy_right:
-            prob = 1
-        else:
-            prob = (expected_entropy - entropy_right) / (entropy_left - entropy_right)
-        assert 0 <= prob <= 1
-        pstate2 = PolicyState(move, left, right, prob)
-        new_entropy, new_psat = pstate2.pareto_point(critic)
-
-        if new_psat < observed_psat:
-            continue
-
         return pstate2
 
     raise RuntimeError("Replanning Failed! This is a bug, please report.")
@@ -135,7 +99,7 @@ class Actor:
     """Factory for improvisation co-routine."""
     game: GameGraph
     critic: Critic
-    rationality: float
+    init: PolicyState
 
     def improvise(self) -> ImprovProtocol:
         """Improviser for game graph.
@@ -151,7 +115,7 @@ class Actor:
           Whether or not player 1 won the game.
         """
         game, critic = self.game, self.critic
-        pstate = PolicyState(game.root, self.rationality)
+        pstate = self.init
 
         while not isinstance(game.label(pstate.node), bool):
             rationality = pstate.sample_coeff()
@@ -180,7 +144,8 @@ class Actor:
 def solve(game: GameGraph,
           psat: float = 0,
           percent_entropy: Optional[float] = None,
-          critic: Optional[Critic] = None) -> Actor:
+          critic: Optional[Critic] = None,
+          tol: float = 1e-4) -> Actor:
     """Find player 1 improviser for game.
 
     Args:
@@ -196,7 +161,7 @@ def solve(game: GameGraph,
     state = game.root
 
     if critic is None:
-        critic = TabularCritic(game)
+        critic = TabularCritic(game, tol=tol)
 
     fake_psat = min(psat + critic.tol, 1)
 
@@ -207,26 +172,29 @@ def solve(game: GameGraph,
     elif percent_entropy is not None:
         h0, hinf = critic.entropy(state, 0), critic.entropy(state, oo)
         entropy = percent_entropy * (h0 - hinf) + hinf
-        rationality = critic.feasible(state, entropy, fake_psat)
-        if rationality is None:
+        pstate = critic.feasible(state, entropy, fake_psat)
+        if pstate is None:
             raise ValueError('No improviser exists!')
     else:
         # Maximum entropy.
         rationality = max(0, critic.match_psat(state, fake_psat))
         entropy = critic.entropy(state, rationality)
+        pstate = PolicyState(state, rationality, 0, 1)# TODO: fix!!!!!
 
-    if critic.entropy(state, rationality) < entropy:
+    policy_entropy, policy_psat = pstate.pareto_point(critic)
+
+    if policy_entropy < entropy:
         raise ValueError(
             "No improviser exists. Entropy constraint unreachable."
         )
 
     # TODO: adjust for tolerance.
-    if critic.psat(state, rationality) < psat:
+    if policy_psat < psat:
         raise ValueError(
             "No improviser exists. Could not reach psat in this MDP"
         )
 
-    return Actor(game, critic, rationality)
+    return Actor(game, critic, pstate)
 
 
 __all__ = ['solve', 'Actor', 'ImprovProtocol']
