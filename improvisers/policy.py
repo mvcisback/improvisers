@@ -49,6 +49,9 @@ def replan(pstate: PolicyState, critic: Critic, dist2: Dist) -> float:
     observed_psat = 0
     for node in dist2.support():
         observed_psat += dist2.prob(node) * pstate.pareto_point(critic)[1]
+
+    if expected_psat == observed_psat:
+        return pstate
         
     # There must exist a deterministic p2 move whose p1 replan suffices. 
     for move in critic.game.moves(pstate.node):

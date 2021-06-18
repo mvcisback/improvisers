@@ -158,7 +158,6 @@ class ParetoCurve:
 
     @staticmethod
     def new(node: Node, critic: Critic) -> ParetoCurve:
-        print(f"creating pareto front for:\n   {node}")
         start = time.time()
         curve = ParetoCurve()
 
@@ -170,8 +169,6 @@ class ParetoCurve:
         size = oo
         while True:
             size, key = curve.max_psat_uncertainty()
-            if len(curve.lsats) % 10 == 0:
-                print(f"{node}\n   {size}, {key}\n    {len(curve.lsats)}")
             if size < critic.tol:
                 break
             curve.entropies[key] = critic._entropy(node, key)
@@ -182,7 +179,7 @@ class ParetoCurve:
         global TOTAL_TIME
         TOTAL_TIME += time.time() - start 
         NUM_NODES_DONE += 1
-        if NUM_NODES_DONE % 10 == 0:
+        if NUM_NODES_DONE % 100 == 0:
             print(f"{NUM_NODES_DONE=}, AVG_TIME={TOTAL_TIME / NUM_NODES_DONE}")
 
         return curve
@@ -220,41 +217,7 @@ class ParetoCurve:
             edge = self.find_edge_by_key(key, entropies=False)
         else:
             edge = self.find_edge(entropy)
-
-        if edge[0] == edge[1]:
-            low = high = _psat(self.lsats[edge[0]])
-            return Itvl(low, high) 
-
-        assert edge[0] < edge[1]
-        p0, p1 = self[edge[0]], self[edge[1]]
-        assert p0.psat <= p1.psat + 1e-3
-        if p1.psat < p0.psat <= 0:  # Hack for floating point.
-            return Itvl(p1.psat, p1.psat)
-
-        if p0.entropy == p1.entropy:  # Flat region.
-            assert p0.psat == p1.psat
-            return Itvl(p0.psat, p1.psat)
-            
-        # Lower bound by convexity.
-        slope01 = (p1.psat - p0.psat) / (p1.entropy - p0.entropy)
-        if key is not None:
-            if edge != (0, oo):
-                breakpoint()
-
-            return Itvl(p0.psat, p1.psat)
-
-
-
-        #assert edge[1] >= abs(slope01) >= edge[0]
-        low = p1.psat + slope01 * (entropy - p1.entropy)
-        assert p0.psat <= low
-
-        # Upper bound due to monotonicity.
-        high = p1.psat
-        assert low <= high + 1e-4  # HACK
-        low = min(high, low)  # Be conservative.
-        assert p1.psat >= high
-        return Itvl(low, high)
+        return self.edge_bounds(edge, entropy=entropy)
 
     def find_edge(self, entropy: float) -> Tuple[float, float]:
         assert set(self.lsats.keys()) <= set(self.entropies.keys())
@@ -278,20 +241,53 @@ class ParetoCurve:
         prob = convex_comb(self, entropy)
         return prob*key1 + (1-prob)*key2
 
+    def edge_bounds(self, edge, entropy=None) -> Itvl:
+        p0, p1 = self[edge[0]], self[edge[1]]
+        assert p0.psat <= p1.psat + 1e-3
+        if p1.psat - p0.psat <= 0:  # Hack for floating point.
+            return Itvl(p0.psat, p1.psat)
+        # Find where upper bounds intersect.
+        slope0 = 1/edge[0] if edge[0] != 0 else oo
+        slope1 = 1/edge[1]
+        # Lower bound by convexity.
+        slope01 = (p1.psat - p0.psat) / (p1.entropy - p0.entropy)
+
+        if slope1 >= abs(slope01):
+            slope1 = abs(slope01)  # HACK: Numerical approximations mess this up.
+        elif slope0 <= abs(slope01):
+            slope0 = abs(slope01)  # HACK: Numerical approximations mess this up.
+
+        if entropy is None:
+            if slope0 == oo:
+                entropy = p0.entropy
+            else:
+                entropy = p0.psat + slope0 * p0.entropy 
+                entropy += slope1 * p1.entropy - p1.psat
+                entropy /= slope0 + slope1
+
+        high1 = slope1*(p1.entropy - entropy) + p1.psat
+
+        if slope0 == oo:
+            high0 = high1
+        else:
+            high0 = slope0*(p0.entropy - entropy) + p0.psat
+
+        #assert high1 - high0 <= 1e-2
+        high = min(high1, high0, p1.psat)
+        low = p1.psat + slope01 * (entropy - p1.entropy)
+        low = max(p0.psat, low)
+        return Itvl(low, high)
+
     def max_psat_uncertainty(self) -> Tuple[float, float]:
         """Return current uncertainty and next key to compute."""
-        items = list(self.lsats.items())
+        items = list(self.lsats.keys())
         max_size = 0
         key = None
-        for (k1, l1), (k2, l2) in zip(items, items[1:]):
-            low, high = l1, l2
-            if high < low and abs(low - high) < 1e-5:  # HACK
-                low, high = high, low
-            assert high >= low
-            assert k1 <= k2
-            itvl = psat(Itvl(low, high))
+        for edge in zip(items, items[1:]):
+            itvl = self.edge_bounds(edge)
             
             if itvl.size > max_size:
+                k1, k2 = edge
                 key = (k2 - k1) / 2 + k1 if k2 != oo else max(2*k1, 1)
                 max_size = itvl.size
         return max_size, key

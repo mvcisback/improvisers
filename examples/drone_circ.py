@@ -441,62 +441,9 @@ class BinaryGameGraph:
         return node.label
 
 
-def lifted_policy(actor, horizon):
-    graph = actor.game.graph
-    policy = actor.improvise()
-    observation = None
-    int2action = GW.dynamics.ACTIONS_C.inv
-    state, logical_time = 0, 0
-    p2_path = []
-    for t in range(horizon):
-        for player in ['p1','p2', 'env']:
-            name = graph.nodes[state]['label']
-            if isinstance(name, bool):
-                label = player
-                time = horizon
-            else:
-                time = int(name.split('##time_')[1])
-                label = actor.game.label(state)
-
-            if time == t:
-                if label == 'p1' == player: # Select a p1 move/action and next state.
-                    if t > 0:
-                        observation = (state, p2_path)
-
-                    move, state_dist = policy.send(observation)
-                    guard = graph.edges[state, move]['label']
-                    p1_actions = list(guard)
-                    actions = yield random.choice(p1_actions)
-
-                    # TODO: HACK. Assume fix env policy for now.
-                    assert actions['🗘'] == 0
-                    assert actions['🎲₁'] == 0
-                    assert actions['🎲₂'] == 0
-                    
-                    prev_state = state
-                    state = move
-                    p2_path = []
-                    print(t, time, actions['a₁'])
-                else:
-                    # find consistent move with actions (assumed 0)
-                    if label == 'p2':
-                        p2_path.append(state)
-                    for move in graph.neighbors(state):
-                        guard = graph.edges[state, move]['label']
-                        if 0 in guard:
-                            break
-                    prev_state = state
-                    state = move
-                    
-            elif label == 'p1' == player:
-                assert time > t
-                actions = yield random.choice(list(int2action.inv))
-                print(t, time, actions['a₁'])
-
-
 def main():
     dim = 5
-    horizon = 8
+    horizon = 12
 
     workspace = drone_dynamics(dim)      # Add dynamics
     workspace >>= feature_sensor(dim)    # Add features
@@ -525,10 +472,9 @@ def main():
     game = BinaryGameGraph(mdd.bdd)
     import time
     start = time.time()
-    actor = solve(game, psat=0.8, tol=0.001)
+    actor = solve(game, psat=0.8, tol=1e-3/horizon)
     print(time.time() - start)
 
-    breakpoint()
 
     n_inputs = len(workspace.aig.inputs)
     assert len(game.root.expr.bdd.vars) == horizon * n_inputs + 2
@@ -568,23 +514,26 @@ def main():
                 if isinstance(label, float):                # Flip biased coin.
                     bias = label 
                 elif label == 'p2':                         # p2 policy. 
-                    bias = 0.01
+                    bias = 1 
                 else:
                     bias = 0.5
 
                 decision = random.random() < bias
+                moves = list(state.moves())
             
                 if dont_care:
+                    assert len(moves) == 2
                     circ_input[key] = decision
                     continue
 
-                moves = list(state.moves())                 # Forced move.
                 assert len(moves) in (1, 2)
-                if len(moves) == 1:
+                if len(moves) == 1:                  # Forced move.
                     circ_input[key] = moves[0] == state.expr.high
+                    state = moves[0]
                     continue
                 else:
                     circ_input[key] = decision
+                    state = moves[int(decision)]
 
             # Decode input 
             circ_input = workspace.imap.unblast(circ_input)
@@ -595,6 +544,7 @@ def main():
                 circ_input[key] = val 
             yield circ_input, sim.send(circ_input)[0]
             
+
     while True:
         input('run?')
 
